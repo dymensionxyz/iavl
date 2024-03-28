@@ -16,13 +16,13 @@ const (
 	lengthByte byte = 0x20
 )
 
-// Represents a IAVL Deep Subtree that can contain
+// DeepSubTree represents a IAVL Deep Subtree that can contain
 // a subset of nodes of an IAVL tree
 type DeepSubTree struct {
 	*MutableTree
 	initialRootHash  []byte        // Initial Root Hash when Deep Subtree is initialized for an already existing tree
-	witnessData      []WitnessData // Represents a trace operation along with inclusion proofs required for said operation
-	operationCounter int           // Keeps track of which operation in the witness data list the Deep Subtree is on
+	witnessData      []WitnessData // Represents a trace operation along with inclusion proofs required for operation at i
+	operationCounter int           // Track of which operation in the witness data list the Deep Subtree is on
 }
 
 // NewDeepSubTree returns a new deep subtree with the specified cache size, datastore, and version.
@@ -43,13 +43,13 @@ func NewDeepSubTree(db dbm.DB, cacheSize int, skipFastStorageUpgrade bool, versi
 	return &DeepSubTree{MutableTree: mutableTree, initialRootHash: nil, witnessData: nil, operationCounter: 0}
 }
 
-// Setter for witness data. Also, resets the operation counter back to 0.
+// SetWitnessData sets witness data. Also, resets the operation counter back to 0.
 func (dst *DeepSubTree) SetWitnessData(witnessData []WitnessData) {
 	dst.witnessData = witnessData
 	dst.operationCounter = 0
 }
 
-// Returns the initial root hash if it is initialized and Deep Subtree root is nil.
+// GetInitialRootHash returns the initial root hash if it is initialized and Deep Subtree root is nil.
 // Otherwise, returns the Deep Subtree working hash is considered the initial root hash.
 func (dst *DeepSubTree) GetInitialRootHash() ([]byte, error) {
 	if dst.root == nil && dst.initialRootHash != nil {
@@ -58,7 +58,7 @@ func (dst *DeepSubTree) GetInitialRootHash() ([]byte, error) {
 	return dst.WorkingHash()
 }
 
-// Setter for initial root hash
+// SetInitialRootHash sets the initial root hash
 func (dst *DeepSubTree) SetInitialRootHash(initialRootHash []byte) {
 	dst.initialRootHash = initialRootHash
 }
@@ -156,7 +156,7 @@ func (dst *DeepSubTree) verifyOperationAndProofs(operation Operation, key []byte
 	if traceOp.Operation != operation || !bytes.Equal(traceOp.Key, key) || !bytes.Equal(traceOp.Value, value) {
 		return fmt.Errorf(
 			"traceOp in witnessData (%s, %s, %s) does not match up with executed operation (%s, %s, %s)",
-			traceOp.Operation, string(traceOp.Key), string(traceOp.Value), 
+			traceOp.Operation, string(traceOp.Key), string(traceOp.Value),
 			operation, string(key), string(value),
 		)
 	}
