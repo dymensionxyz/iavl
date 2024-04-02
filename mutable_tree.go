@@ -216,7 +216,7 @@ func (tree *MutableTree) setOp(key, value []byte) (updated bool, err error) {
 // when tracing is enabled
 func (tree *MutableTree) Get(key []byte) ([]byte, error) {
 	if !tree.tracingEnabled {
-		return tree.getOp(key)
+		return tree.getOp(key) // TODO(danwt): I don't know why it's not going directly to the immut tree here (same for HAS)
 	}
 	value, err := tree.getOp(key)
 	if err != nil {
@@ -257,6 +257,53 @@ func (tree *MutableTree) getOp(key []byte) ([]byte, error) {
 	}
 
 	return tree.ImmutableTree.Get(key)
+}
+
+// Wrapper around getOp to add operation related data to the tree's witness data
+// when tracing is enabled
+func (tree *MutableTree) Has(key []byte) (bool, error) {
+	if !tree.tracingEnabled {
+		return tree.hasOp(key)
+	}
+	value, err := tree.hasOp(key)
+	if err != nil {
+		return false, err
+	}
+
+	keysAccessed := tree.ndb.keysAccessed.Values()
+
+	existenceProofs, err := tree.reapExistenceProofs(keysAccessed)
+	if err != nil {
+		return false, err
+	}
+	tree.witnessData = append(tree.witnessData, WitnessData{
+		Operation: "read",
+		Key:       key,
+		Proofs:    existenceProofs,
+	})
+	return value, nil
+}
+
+// getOp returns the value of the specified key if it exists, or nil otherwise.
+// The returned value must not be modified, since it may point to data stored within IAVL.
+func (tree *MutableTree) hasOp(key []byte) (bool, error) {
+	tree.ndb.keysAccessed = make(set.Set[string])
+
+	if tree.root == nil {
+		return false, nil
+	}
+
+	if !tree.skipFastStorageUpgrade {
+		if _, ok := tree.unsavedFastNodeAdditions[unsafeToStr(key)]; ok {
+			return true, nil
+		}
+		// check if node was deleted
+		if _, ok := tree.unsavedFastNodeRemovals[string(key)]; ok {
+			return false, nil
+		}
+	}
+
+	return tree.ImmutableTree.Has(key)
 }
 
 // Import returns an importer for tree nodes previously exported by ImmutableTree.Export(),
