@@ -411,34 +411,43 @@ func (tc *testContext) has(key []byte) error {
 }
 
 // Performs the Iterate operation  TODO:..
-func (tc *testContext) iterate(a, b []byte, ascending bool) error {
-	if a == nil || b == nil {
+func (tc *testContext) iterate(start, end []byte, ascending bool) error {
+	if start == nil || end == nil {
 		return nil
 	}
-	return nil
+	tree, dst := tc.tree, tc.dst
+
 	/*
-		tree, dst := tc.tree, tc.dst
-
-		// Set key-value pair in IAVL tree
-		treeValue, err := tree.Has(key)
-		if err != nil {
-			return err
-		}
-		witness := tree.witnessData[len(tree.witnessData)-1]
-		dst.SetWitnessData([]WitnessData{witness})
-
-		dstValue, err := dst.Has(key)
-		if err != nil {
-			return err
-		}
-
-		if dstValue != treeValue {
-			return fmt.Errorf("get key from dst: %s", string(key))
-		}
-
-		return nil
-
+		TODO: do I need to explicitly test Domain,Valid,Next,Key,Value,Error,Close? In varying dynamic (non usual) ways?
 	*/
+
+	// Set key-value pair in IAVL tree
+	itTree, err := tree.Iterator(start, end, ascending)
+	if err != nil {
+		return err
+	}
+
+	defer itTree.Close()
+
+	for ; itTree.Valid(); itTree.Next() {
+		x := itTree.Value()
+		y, _ := itTree.Domain()
+		z := itTree.Error()
+		w := itTree.Key()
+		_, _, _, _ = x, y, z, w
+	}
+
+	witness := tree.witnessData[len(tree.witnessData)-1]
+	dst.SetWitnessData([]WitnessData{witness})
+
+	// Set key-value pair in IAVL tree
+	itDST, err := tree.Iterator(start, end, ascending)
+	if err != nil {
+		return err
+	}
+	_ = itDST
+
+	return nil
 }
 
 // Fuzz tests different combinations of Get, Remove, Set operations generated in
