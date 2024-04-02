@@ -430,13 +430,11 @@ func (tc *testContext) iterate(start, end []byte, ascending bool, stopAfter *int
 	defer itTree.Close()
 
 	type result struct {
-		start    []byte
-		end      []byte
-		valid    bool
-		key      []byte
-		value    []byte
-		err      error
-		closeErr error
+		start []byte
+		end   []byte
+		key   []byte
+		value []byte
+		err   error
 	}
 
 	var results []result
@@ -450,15 +448,15 @@ func (tc *testContext) iterate(start, end []byte, ascending bool, stopAfter *int
 		err := itTree.Error()
 
 		results = append(results, result{
-			start:    s,
-			end:      e,
-			valid:    true,
-			key:      k,
-			value:    v,
-			err:      err,
-			closeErr: nil,
+			start: s,
+			end:   e,
+			key:   k,
+			value: v,
+			err:   err,
 		})
 	}
+
+	itTreeCloseErr := itTree.Close()
 
 	witness := tree.witnessData[len(tree.witnessData)-1]
 	dst.SetWitnessData([]WitnessData{witness})
@@ -468,7 +466,37 @@ func (tc *testContext) iterate(start, end []byte, ascending bool, stopAfter *int
 	if err != nil {
 		return err
 	}
-	_ = itDST
+
+	i = 0
+	for ; itDST.Valid() && (stopAfter == nil || i < *stopAfter); itDST.Next() {
+		s, e := itDST.Domain()
+		k := itDST.Key()
+		v := itDST.Value()
+		err := itDST.Error()
+		r := results[i]
+		i++
+		if !bytes.Equal(r.start, s) || !bytes.Equal(r.end, e) {
+			return fmt.Errorf("start/end mismatch")
+		}
+		if !bytes.Equal(r.key, k) {
+			return fmt.Errorf("key mismatch")
+		}
+		if !bytes.Equal(r.value, v) {
+			return fmt.Errorf("value mismatch")
+		}
+		if !errors.Is(r.err, err) || !errors.Is(err, r.err) { // TODO: makes sense?
+			return fmt.Errorf("error mismatch")
+		}
+	}
+	if i != len(results) {
+		return fmt.Errorf("valid mismatch")
+	}
+
+	itDSTCloseErr := itDST.Close()
+
+	if !errors.Is(itTreeCloseErr, itDSTCloseErr) || !errors.Is(itDSTCloseErr, itTreeCloseErr) { // TODO: makes sense?
+		return fmt.Errorf("close error mismatch")
+	}
 
 	return nil
 }
@@ -543,7 +571,12 @@ func FuzzBatchAddReverse(f *testing.F) {
 				require.NoError(err)
 				ascending := readByte(r)%2 == 0
 				t.Logf("%d: Iterate: [%s,%s,%t]\n", i, string(keyA), string(keyB), ascending)
-				err = tc.iterate(keyA, keyB, ascending)
+				var stopAfter *int
+				if readByte(r)%2 == 0 {
+					err := binary.Read(r, binary.BigEndian, stopAfter)
+					require.NoError(err)
+				}
+				err = tc.iterate(keyA, keyB, ascending, stopAfter)
 				if err != nil {
 					t.Error(err)
 				}
