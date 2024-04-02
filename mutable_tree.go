@@ -354,6 +354,7 @@ func (tree *MutableTree) Iterate(fn func(key []byte, value []byte) bool) (stoppe
 
 // TracingIterator wraps an iterator with tracing info
 // The Domain method is not overwritten TODO: should it be?
+// TODO: can I del this whole thing? doesn't seem necessary
 type TracingIterator struct {
 	dbm.Iterator
 	tree *MutableTree
@@ -370,6 +371,24 @@ type TracingIterator struct {
 		Yes
 			Next
 	*/
+}
+
+func (iter TracingIterator) Next() {
+	// TODO(danwt): need to clone? if it fails first time, try cloning
+	iter.Iterator.Next()
+
+	keysAccessed := iter.tree.ndb.keysAccessed.Values()
+
+	existenceProofs, err := iter.tree.reapExistenceProofs(keysAccessed)
+	if err != nil {
+		// TODO(danwt): what to do? Can I collapse errors? Don't lose it!
+		panic(err)
+	}
+	iter.tree.witnessData = append(iter.tree.witnessData, WitnessData{
+		Operation: "read",
+		Key:       iter.Key(), // TODO: correct?
+		Proofs:    existenceProofs,
+	})
 }
 
 // Iterator returns an iterator over the mutable tree.
@@ -397,8 +416,7 @@ func (tree *MutableTree) Iterator(start, end []byte, ascending bool) (dbm.Iterat
 		return iter, err
 	}
 
-	// TODO: reap proofs and create witness
-
+	// Proofs and witnesses are reaped as the iterator is used
 	return TracingIterator{iter, tree}, nil
 }
 
