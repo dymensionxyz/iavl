@@ -278,7 +278,7 @@ func (tc *testContext) getKey(genRandom bool, addsNewKey bool) (key []byte, err 
 }
 
 // Performs the Set operation on full IAVL tree first, gets the witness data generated from
-// the operatio, and uses that witness data to peform the same operation on the Deep Subtree
+// the operation, and uses that witness data to perform the same operation on the Deep Subtree
 func (tc *testContext) setInDST(key []byte, value []byte) error {
 	if key == nil {
 		return nil
@@ -312,7 +312,7 @@ func (tc *testContext) setInDST(key []byte, value []byte) error {
 }
 
 // Performs the Remove operation on full IAVL tree first, gets the witness data generated from
-// the operatio, and uses that witness data to peform the same operation on the Deep Subtree
+// the operation, and uses that witness data to peformn the same operation on the Deep Subtree
 func (tc *testContext) removeInDST(key []byte) error {
 	if key == nil {
 		return nil

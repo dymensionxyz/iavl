@@ -73,7 +73,7 @@ func (node *Node) updateInnerNodeKey() {
 }
 
 // Traverses the nodes in the NodeDB that are part of Deep Subtree
-// and links them together using the populated left and right
+// and links the pointers together using the populated left and right
 // hashes and sets the root to be the node with the given rootHash
 func (dst *DeepSubTree) buildTree(rootHash []byte) error {
 	workingHash, err := dst.WorkingHash()
@@ -82,6 +82,7 @@ func (dst *DeepSubTree) buildTree(rootHash []byte) error {
 	}
 	if !bytes.Equal(workingHash, rootHash) {
 		if dst.root != nil {
+			// sanity check
 			return fmt.Errorf(
 				"deep subtree rootHash: %s does not match expected rootHash: %s",
 				workingHash,
@@ -122,7 +123,6 @@ func (dst *DeepSubTree) buildTree(rootHash []byte) error {
 }
 
 // Link the given node if it is not linked yet
-// If already linked, return an error in case connection was made incorrectly
 // Note: GetNode returns nil if the node with the hash passed into it does not exist
 // which is expected with a deep subtree.
 func (dst *DeepSubTree) linkNode(node *Node) error {
@@ -532,7 +532,7 @@ func (node *Node) getLowestKey() []byte {
 	return lowestKey
 }
 
-// Adds nodes associated to the given existence proof to the underlying deep subtree
+// AddExistenceProofs adds nodes associated to the given existence proofs to the underlying deep subtree
 func (dst *DeepSubTree) AddExistenceProofs(existenceProofs []*ics23.ExistenceProof, rootHash []byte) error {
 	for _, existenceProof := range existenceProofs {
 		err := dst.addExistenceProof(existenceProof)
@@ -565,6 +565,9 @@ func (dst *DeepSubTree) saveNodeIfNeeded(node *Node) error {
 	return nil
 }
 
+// addExistenceProof adds nodes associated to the given existence proof to the underlying deep subtree.
+// Creates the leaf, and the chain of internal nodes, up to the root.
+// ONLY sets nodes in the db (does not wire up *Node pointers)
 func (dst *DeepSubTree) addExistenceProof(proof *ics23.ExistenceProof) error {
 	leaf, err := fromLeafOp(proof.GetLeaf(), proof.Key, proof.Value)
 	if err != nil {
@@ -574,7 +577,7 @@ func (dst *DeepSubTree) addExistenceProof(proof *ics23.ExistenceProof) error {
 	if err != nil {
 		return err
 	}
-	prevHash := leaf.hash
+	prevHash := leaf.hash // contains the hash of the node closest to the root that has been built so far
 	path := proof.GetPath()
 	for i := range path {
 		inner, err := fromInnerOp(path[i], prevHash)
