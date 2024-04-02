@@ -411,7 +411,7 @@ func (tc *testContext) has(key []byte) error {
 }
 
 // Performs the Iterate operation  TODO:..
-func (tc *testContext) iterate(start, end []byte, ascending bool) error {
+func (tc *testContext) iterate(start, end []byte, ascending bool, stopAfter *int) error {
 	if start == nil || end == nil {
 		return nil
 	}
@@ -429,12 +429,35 @@ func (tc *testContext) iterate(start, end []byte, ascending bool) error {
 
 	defer itTree.Close()
 
-	for ; itTree.Valid(); itTree.Next() {
-		x := itTree.Value()
-		y, _ := itTree.Domain()
-		z := itTree.Error()
-		w := itTree.Key()
-		_, _, _, _ = x, y, z, w
+	type result struct {
+		start    []byte
+		end      []byte
+		valid    bool
+		key      []byte
+		value    []byte
+		err      error
+		closeErr error
+	}
+
+	var results []result
+
+	i := 0
+	for ; itTree.Valid() && (stopAfter == nil || i < *stopAfter); itTree.Next() {
+		i++
+		s, e := itTree.Domain()
+		k := itTree.Key()
+		v := itTree.Value()
+		err := itTree.Error()
+
+		results = append(results, result{
+			start:    s,
+			end:      e,
+			valid:    true,
+			key:      k,
+			value:    v,
+			err:      err,
+			closeErr: nil,
+		})
 	}
 
 	witness := tree.witnessData[len(tree.witnessData)-1]
