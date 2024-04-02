@@ -326,15 +326,12 @@ func (tc *testContext) remove(key []byte) error {
 	witness := tree.witnessData[len(tree.witnessData)-1]
 	dst.SetWitnessData([]WitnessData{witness})
 
-	if err != nil {
-		return err
-	}
 	_, removed, err := dst.Remove(key)
 	if err != nil {
 		return err
 	}
 	if !removed {
-		return fmt.Errorf("Remove: Unable to remove key: %s from DST", string(key))
+		return fmt.Errorf("remove key from dst: %s", string(key))
 	}
 	dst.SaveVersion()
 
@@ -343,14 +340,14 @@ func (tc *testContext) remove(key []byte) error {
 		return err
 	}
 	if !areEqual {
-		return errors.New("Remove: Unequal roots for Deep subtree and IAVL tree")
+		return errors.New("iavl and deep subtree roots are not equal")
 	}
 	return nil
 }
 
 // Performs the Get operation on full IAVL tree first, gets the witness data generated from
 // the operation, and uses that witness data to peform the same operation on the Deep Subtree
-func (tc *testContext) getInDST(key []byte) error {
+func (tc *testContext) get(key []byte) error {
 	if key == nil {
 		return nil
 	}
@@ -364,15 +361,12 @@ func (tc *testContext) getInDST(key []byte) error {
 	witness := tree.witnessData[len(tree.witnessData)-1]
 	dst.SetWitnessData([]WitnessData{witness})
 
-	if err != nil {
-		return err
-	}
 	dstValue, err := dst.Get(key)
 	if err != nil {
 		return err
 	}
 	if !bytes.Equal(dstValue, treeValue) {
-		return fmt.Errorf("Get: Values retrieved to get key: %s do not match", string(key))
+		return fmt.Errorf("get key from dst: %s", string(key))
 	}
 
 	return nil
@@ -429,7 +423,7 @@ func FuzzBatchAddReverse(f *testing.F) {
 				keyToGet, err := tc.getKey(true, false)
 				require.NoError(err)
 				t.Logf("%d: Get: %s\n", i, string(keyToGet))
-				err = tc.getInDST(keyToGet)
+				err = tc.get(keyToGet)
 				if err != nil {
 					t.Error(err)
 				}
