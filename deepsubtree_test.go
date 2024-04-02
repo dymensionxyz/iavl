@@ -495,7 +495,7 @@ func (tc *testContext) iterate(start, end []byte, ascending bool, stopAfter uint
 		}
 	}
 	if int(i) != len(results) {
-		return fmt.Errorf("valid mismatch")
+		return fmt.Errorf("valid cnt mismatch: expect %d: got %d", len(results), i)
 	}
 
 	itDSTCloseErr := itDST.Close()
