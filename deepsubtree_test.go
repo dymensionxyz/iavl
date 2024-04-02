@@ -22,6 +22,7 @@ const (
 	Remove
 	Get
 	Has
+	Iterate
 	Noop
 )
 
@@ -409,6 +410,37 @@ func (tc *testContext) has(key []byte) error {
 	return nil
 }
 
+// Performs the Iterate operation  TODO:..
+func (tc *testContext) iterate(a, b []byte, ascending bool) error {
+	if a == nil || b == nil {
+		return nil
+	}
+	return nil
+	/*
+		tree, dst := tc.tree, tc.dst
+
+		// Set key-value pair in IAVL tree
+		treeValue, err := tree.Has(key)
+		if err != nil {
+			return err
+		}
+		witness := tree.witnessData[len(tree.witnessData)-1]
+		dst.SetWitnessData([]WitnessData{witness})
+
+		dstValue, err := dst.Has(key)
+		if err != nil {
+			return err
+		}
+
+		if dstValue != treeValue {
+			return fmt.Errorf("get key from dst: %s", string(key))
+		}
+
+		return nil
+
+	*/
+}
+
 // Fuzz tests different combinations of Get, Remove, Set operations generated in
 // a random order with keys related to operations chosen randomly
 func FuzzBatchAddReverse(f *testing.F) {
@@ -472,6 +504,19 @@ func FuzzBatchAddReverse(f *testing.F) {
 				if err != nil {
 					t.Error(err)
 				}
+			case Iterate:
+				keyA, err := tc.getKey(true, false)
+				require.NoError(err)
+				keyB, err := tc.getKey(true, false)
+				require.NoError(err)
+				ascending := readByte(r)%2 == 0
+				t.Logf("%d: Iterate: [%s,%s,%t]\n", i, string(keyA), string(keyB), ascending)
+				err = tc.iterate(keyA, keyB, ascending)
+				if err != nil {
+					t.Error(err)
+				}
+			default:
+				panic("unhandled default case")
 			}
 		}
 		t.Log("Done")
