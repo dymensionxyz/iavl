@@ -414,7 +414,8 @@ func (tc *testContext) has(key []byte) error {
 }
 
 // Performs the Iterate operation  TODO:..
-func (tc *testContext) iterate(start, end []byte, ascending bool, stopAfter *uint8) error {
+// if stopAfter is positive, the iterations will be capped
+func (tc *testContext) iterate(start, end []byte, ascending bool, stopAfter uint8) error {
 	if start == nil || end == nil {
 		return nil
 	}
@@ -443,7 +444,7 @@ func (tc *testContext) iterate(start, end []byte, ascending bool, stopAfter *uin
 	var results []result
 
 	i := uint8(0)
-	for ; itTree.Valid() && (stopAfter == nil || i < *stopAfter); itTree.Next() {
+	for ; itTree.Valid() && (0 < stopAfter && i < stopAfter); itTree.Next() {
 		i++
 		s, e := itTree.Domain()
 		k := itTree.Key()
@@ -471,7 +472,7 @@ func (tc *testContext) iterate(start, end []byte, ascending bool, stopAfter *uin
 	}
 
 	i = 0
-	for ; itDST.Valid() && (stopAfter == nil || i < *stopAfter); itDST.Next() {
+	for ; itDST.Valid() && (0 < stopAfter && i < stopAfter); itDST.Next() {
 		s, e := itDST.Domain()
 		k := itDST.Key()
 		v := itDST.Value()
@@ -526,8 +527,9 @@ func FuzzBatchAddReverse(f *testing.F) {
 			require,
 			0,
 		}
-		bytesNeededWorstCase := 28
+		bytesNeededWorstCase := 100
 		for i := 0; bytesNeededWorstCase < r.Len(); i++ {
+			tc.byteReqs = 0
 			b, err := r.ReadByte()
 			if err != nil {
 				continue
@@ -576,10 +578,9 @@ func FuzzBatchAddReverse(f *testing.F) {
 				keyB, err := tc.getKey(true, false)
 				require.NoError(err)
 				ascending := tc.getByte()%2 == 0
-				var stopAfter *uint8
+				var stopAfter uint8
 				if tc.getByte()%2 == 0 {
-					x := tc.getByte()
-					stopAfter = &x
+					stopAfter = tc.getByte()
 				}
 				t.Logf("%d: Iterate: [%s,%s,%t,%d]\n", i, string(keyA), string(keyB), ascending, stopAfter)
 				err = tc.iterate(keyA, keyB, ascending, stopAfter)
