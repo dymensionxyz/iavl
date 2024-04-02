@@ -167,6 +167,9 @@ func (tree *MutableTree) Set(key, value []byte) (updated bool, err error) {
 	if !tree.tracingEnabled {
 		return tree.setOp(key, value)
 	}
+
+	// TODO(danwt): why the clone here?
+
 	savedTree := tree.ImmutableTree.clone()
 	_, err = tree.setOp(key, value)
 	if err != nil {
@@ -284,7 +287,7 @@ func (tree *MutableTree) Has(key []byte) (bool, error) {
 	return value, nil
 }
 
-// getOp returns the value of the specified key if it exists, or nil otherwise.
+// hasOp returns the value of the specified key if it exists, or nil otherwise.
 // The returned value must not be modified, since it may point to data stored within IAVL.
 func (tree *MutableTree) hasOp(key []byte) (bool, error) {
 	tree.ndb.keysAccessed = make(set.Set[string])
@@ -321,6 +324,8 @@ func (tree *MutableTree) Import(version int64) (*Importer, error) {
 // Iterate iterates over all keys of the tree. The keys and values must not be modified,
 // since they may point to data stored within IAVL. Returns true if stopped by callback, false otherwise
 func (tree *MutableTree) Iterate(fn func(key []byte, value []byte) bool) (stopped bool, err error) {
+	// TODO(danwt): need to write something, or modify for tracing? (or lack of)
+
 	if tree.root == nil {
 		return false, nil
 	}
@@ -347,14 +352,31 @@ func (tree *MutableTree) Iterate(fn func(key []byte, value []byte) bool) (stoppe
 	return false, nil
 }
 
+// TracingIterator wraps an iterator with tracing info
+// The Domain method is not overwritten TODO: should it be?
 type TracingIterator struct {
 	dbm.Iterator
 	tree *MutableTree
+
+	/*
+		Which methods need to be overridden?
+		No
+			Domain
+			Valid
+			Key
+			Value
+			Error
+			Close
+		Yes
+			Next
+	*/
 }
 
 // Iterator returns an iterator over the mutable tree.
 // CONTRACT: no updates are made to the tree while an iterator is active.
 func (tree *MutableTree) Iterator(start, end []byte, ascending bool) (dbm.Iterator, error) {
+	tree.ndb.keysAccessed = make(set.Set[string]) // TODO(danwt): gonna have to do this on each subop instead?
+
 	if !tree.skipFastStorageUpgrade {
 		isFastCacheEnabled, err := tree.IsFastCacheEnabled()
 		if err != nil {
@@ -370,6 +392,13 @@ func (tree *MutableTree) Iterator(start, end []byte, ascending bool) (dbm.Iterat
 	if err != nil {
 		return nil, fmt.Errorf("immutable tree iterator: %w", err)
 	}
+
+	if !tree.tracingEnabled {
+		return iter, err
+	}
+
+	// TODO: reap proofs and create witness
+
 	return TracingIterator{iter, tree}, nil
 }
 
