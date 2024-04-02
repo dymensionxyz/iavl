@@ -441,7 +441,7 @@ func (tc *testContext) iterate(start, end []byte, ascending bool) error {
 	dst.SetWitnessData([]WitnessData{witness})
 
 	// Set key-value pair in IAVL tree
-	itDST, err := tree.Iterator(start, end, ascending)
+	itDST, err := dst.Iterator(start, end, ascending)
 	if err != nil {
 		return err
 	}
