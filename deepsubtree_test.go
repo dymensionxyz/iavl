@@ -165,15 +165,15 @@ func TestDeepSubtreeWithValueUpdates(t *testing.T) {
 
 		values := [][]byte{{10}, {20}}
 		for i, subsetKey := range subsetKeys {
-			err := tc.setInDST(subsetKey, values[i])
+			err := tc.set(subsetKey, values[i])
 			require.Nil(err)
 		}
 	}
 }
 
-// Tests adding and deleting keys in the deepsubtree returns the
-// correct roots
-func TestDeepSubtreeWWithAddsAndDeletes(t *testing.T) {
+// Makes sure that the root hash of the deep subtree is equal to the root hash of the IAVL tree
+// whenever we add new nodes or delete existing nodes
+func TestDeepSubtreeWithAddsAndDeletes(t *testing.T) {
 	require := require.New(t)
 	getTree := func() *MutableTree {
 		tree, err := getTestTree(5)
@@ -221,7 +221,7 @@ func TestDeepSubtreeWWithAddsAndDeletes(t *testing.T) {
 
 	// Add all the keys we intend to add and check root hashes stay equal
 	for i, keyToAdd := range keysToAdd {
-		err := tc.setInDST(keyToAdd, valuesToAdd[i])
+		err := tc.set(keyToAdd, valuesToAdd[i])
 		require.Nil(err)
 	}
 
@@ -231,7 +231,7 @@ func TestDeepSubtreeWWithAddsAndDeletes(t *testing.T) {
 	for i := range keysToAdd {
 		keyToDelete := keysToAdd[i]
 
-		err := tc.removeInDST(keyToDelete)
+		err := tc.remove(keyToDelete)
 		require.Nil(err)
 	}
 }
@@ -277,7 +277,7 @@ func (tc *testContext) getKey(genRandom bool, addsNewKey bool) (key []byte, err 
 
 // Performs the Set operation on full IAVL tree first, gets the witness data generated from
 // the operation, and uses that witness data to perform the same operation on the Deep Subtree
-func (tc *testContext) setInDST(key []byte, value []byte) error {
+func (tc *testContext) set(key []byte, value []byte) error {
 	if key == nil {
 		return nil
 	}
@@ -311,7 +311,7 @@ func (tc *testContext) setInDST(key []byte, value []byte) error {
 
 // Performs the Remove operation on full IAVL tree first, gets the witness data generated from
 // the operation, and uses that witness data to peformn the same operation on the Deep Subtree
-func (tc *testContext) removeInDST(key []byte) error {
+func (tc *testContext) remove(key []byte) error {
 	if key == nil {
 		return nil
 	}
@@ -412,7 +412,7 @@ func FuzzBatchAddReverse(f *testing.F) {
 				t.Logf("%d: Add: %s\n", i, string(keyToAdd))
 				value := make([]byte, 32)
 				binary.BigEndian.PutUint64(value, uint64(i))
-				err = tc.setInDST(keyToAdd, value)
+				err = tc.set(keyToAdd, value)
 				if err != nil {
 					t.Error(err)
 				}
@@ -420,7 +420,7 @@ func FuzzBatchAddReverse(f *testing.F) {
 				keyToDelete, err := tc.getKey(false, false)
 				require.NoError(err)
 				t.Logf("%d: Remove: %s\n", i, string(keyToDelete))
-				err = tc.removeInDST(keyToDelete)
+				err = tc.remove(keyToDelete)
 				if err != nil {
 					t.Error(err)
 				}
