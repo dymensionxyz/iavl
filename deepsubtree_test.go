@@ -21,6 +21,7 @@ const (
 	Set op = iota
 	Remove
 	Get
+	Has
 	Noop
 )
 
@@ -318,7 +319,7 @@ func (tc *testContext) set(key []byte, value []byte) error {
 }
 
 // Performs the Remove operation on full IAVL tree first, gets the witness data generated from
-// the operation, and uses that witness data to peformn the same operation on the Deep Subtree
+// the operation, and uses that witness data to peform the same operation on the Deep Subtree
 func (tc *testContext) remove(key []byte) error {
 	if key == nil {
 		return nil
@@ -354,7 +355,7 @@ func (tc *testContext) remove(key []byte) error {
 }
 
 // Performs the Get operation on full IAVL tree first, gets the witness data generated from
-// the operation, and uses that witness data to peform the same operation on the Deep Subtree
+// the operation, and uses that witness data to perform the same operation on the Deep Subtree
 func (tc *testContext) get(key []byte) error {
 	if key == nil {
 		return nil
@@ -374,6 +375,34 @@ func (tc *testContext) get(key []byte) error {
 		return err
 	}
 	if !bytes.Equal(dstValue, treeValue) {
+		return fmt.Errorf("get key from dst: %s", string(key))
+	}
+
+	return nil
+}
+
+// Performs the Has operation on full IAVL tree first, gets the witness data generated from
+// the operation, and uses that witness data to perform the same operation on the Deep Subtree
+func (tc *testContext) has(key []byte) error {
+	if key == nil {
+		return nil
+	}
+	tree, dst := tc.tree, tc.dst
+
+	// Set key-value pair in IAVL tree
+	treeValue, err := tree.Has(key)
+	if err != nil {
+		return err
+	}
+	witness := tree.witnessData[len(tree.witnessData)-1]
+	dst.SetWitnessData([]WitnessData{witness})
+
+	dstValue, err := dst.Has(key)
+	if err != nil {
+		return err
+	}
+
+	if dstValue != treeValue {
 		return fmt.Errorf("get key from dst: %s", string(key))
 	}
 
@@ -432,6 +461,14 @@ func FuzzBatchAddReverse(f *testing.F) {
 				require.NoError(err)
 				t.Logf("%d: Get: %s\n", i, string(keyToGet))
 				err = tc.get(keyToGet)
+				if err != nil {
+					t.Error(err)
+				}
+			case Has:
+				keyToGet, err := tc.getKey(true, false)
+				require.NoError(err)
+				t.Logf("%d: Has: %s\n", i, string(keyToGet))
+				err = tc.has(keyToGet)
 				if err != nil {
 					t.Error(err)
 				}

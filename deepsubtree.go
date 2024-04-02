@@ -172,7 +172,7 @@ func (dst *DeepSubTree) verifyOperationAndProofs(operation Operation, key []byte
 			return err
 		}
 	}
-	err = dst.AddExistenceProofs(traceOp.Proofs, rootHash)
+	err = dst.AddExistenceProofs(traceOp.Proofs, rootHash) // TODO(danwt): why is this happening after the fact?
 	if err != nil {
 		return err
 	}
@@ -180,7 +180,7 @@ func (dst *DeepSubTree) verifyOperationAndProofs(operation Operation, key []byte
 	return nil
 }
 
-// Verifies the Set operation with witness data and perform the given write operation
+// Set verifies the Set operation with witness data and perform the given write operation
 func (dst *DeepSubTree) Set(key []byte, value []byte) (updated bool, err error) {
 	err = dst.verifyOperationAndProofs("write", key, value)
 	if err != nil {
@@ -300,8 +300,7 @@ func (dst *DeepSubTree) Has(key []byte) (bool, error) {
 	return dst.has(key)
 }
 
-// Get returns the value of the specified key if it exists, or nil otherwise.
-// The returned value must not be modified, since it may point to data stored within IAVL.
+// Has returns if the key exists
 func (dst *DeepSubTree) has(key []byte) (bool, error) {
 	if dst.root == nil {
 		return false, nil
