@@ -62,9 +62,8 @@ func TestEmptyDeepSubtree(t *testing.T) {
 	require.True(areEqual)
 }
 
-// Tests creating a Deep Subtree step by step
-// as a full IAVL tree and checks if roots are equal
-func TestDeepSubtreeStepByStep(t *testing.T) {
+// Tests creating step-by-step to match a regular tree, and checks if roots are equal
+func TestDeepSubTreeCreateFromProofs(t *testing.T) {
 	require := require.New(t)
 	getTree := func() *MutableTree {
 		tree, err := getTestTree(5)
