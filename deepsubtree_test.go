@@ -169,8 +169,9 @@ func TestDeepSubtreeWithValueUpdates(t *testing.T) {
 		require.True(areEqual)
 
 		tc := testContext{
-			tree: tree,
-			dst:  dst,
+			tree:    tree,
+			dst:     dst,
+			require: require,
 		}
 
 		values := [][]byte{{10}, {20}}
@@ -224,8 +225,9 @@ func TestDeepSubtreeWithAddsAndDeletes(t *testing.T) {
 		{3}, {4},
 	}
 	tc := testContext{
-		tree: tree,
-		dst:  dst,
+		tree:    tree,
+		dst:     dst,
+		require: require,
 	}
 	require.Equal(len(keysToAdd), len(valuesToAdd))
 
@@ -246,27 +248,28 @@ func TestDeepSubtreeWithAddsAndDeletes(t *testing.T) {
 	}
 }
 
-func readByte(r *bytes.Reader) byte {
-	b, err := r.ReadByte()
-	if err != nil {
-		return 0
-	}
-	return b
+type testContext struct {
+	r        *bytes.Reader
+	tree     *MutableTree
+	dst      *DeepSubTree
+	keys     set.Set[string]
+	require  *require.Assertions
+	byteReqs int
 }
 
-type testContext struct {
-	r    *bytes.Reader
-	tree *MutableTree
-	dst  *DeepSubTree
-	keys set.Set[string]
+func (tc *testContext) getByte() byte {
+	bz, err := tc.r.ReadByte()
+	tc.byteReqs++
+	tc.require.NoError(err, "byte request %d", tc.byteReqs)
+	return bz
 }
 
 // If genRandom, returns a random NEW key, half of the time. If addsNewKey is true, adds the key to the set of keys.
 // Otherwise, returns a randomly picked existing key
 func (tc *testContext) getKey(genRandom bool, addsNewKey bool) (key []byte, err error) {
 	tree, r, keys := tc.tree, tc.r, tc.keys
-	if genRandom && readByte(r) < math.MaxUint8/2 {
-		k := make([]byte, readByte(r)/2+1)
+	if genRandom && tc.getByte() < math.MaxUint8/2 {
+		k := make([]byte, tc.getByte()/2+1)
 		r.Read(k)
 		_, err := tree.Get(k)
 		if err != nil {
@@ -281,7 +284,7 @@ func (tc *testContext) getKey(genRandom bool, addsNewKey bool) (key []byte, err 
 		return nil, nil
 	}
 	keyList := keys.Values()
-	kString := keyList[int(readByte(r))%len(keys)]
+	kString := keyList[int(tc.getByte())%len(keys)]
 	return []byte(kString), nil
 }
 
@@ -506,7 +509,7 @@ func (tc *testContext) iterate(start, end []byte, ascending bool, stopAfter *uin
 func FuzzBatchAddReverse(f *testing.F) {
 	f.Fuzz(func(t *testing.T, input []byte) {
 		require := require.New(t)
-		if len(input) < 150 {
+		if len(input) < 300 {
 			return
 		}
 		tree, err := NewMutableTreeWithOpts(db.NewMemDB(), cacheSize, nil, true)
@@ -520,8 +523,11 @@ func FuzzBatchAddReverse(f *testing.F) {
 			tree,
 			dst,
 			keys,
+			require,
+			0,
 		}
-		for i := 0; 6 < r.Len(); i++ {
+		bytesNeededWorstCase := 28
+		for i := 0; bytesNeededWorstCase < r.Len(); i++ {
 			b, err := r.ReadByte()
 			if err != nil {
 				continue
@@ -569,13 +575,13 @@ func FuzzBatchAddReverse(f *testing.F) {
 				require.NoError(err)
 				keyB, err := tc.getKey(true, false)
 				require.NoError(err)
-				ascending := readByte(r)%2 == 0
-				t.Logf("%d: Iterate: [%s,%s,%t]\n", i, string(keyA), string(keyB), ascending)
+				ascending := tc.getByte()%2 == 0
 				var stopAfter *uint8
-				if readByte(r)%2 == 0 {
-					x := readByte(r)
+				if tc.getByte()%2 == 0 {
+					x := tc.getByte()
 					stopAfter = &x
 				}
+				t.Logf("%d: Iterate: [%s,%s,%t,%d]\n", i, string(keyA), string(keyB), ascending, stopAfter)
 				err = tc.iterate(keyA, keyB, ascending, stopAfter)
 				if err != nil {
 					t.Error(err)
