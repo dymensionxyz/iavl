@@ -330,6 +330,7 @@ func (dst *DeepSubTree) get(key []byte) ([]byte, error) {
 
 type VerifyingIterator struct {
 	dbm.Iterator
+	dst *DeepSubTree
 }
 
 // Iterator TODO:
@@ -338,7 +339,7 @@ func (dst *DeepSubTree) Iterator(start, end []byte, ascending bool) (dbm.Iterato
 	if err != nil {
 		return nil, fmt.Errorf("immutable tree iterator: %w", err)
 	}
-	return &VerifyingIterator{Iterator: iter}, nil
+	return &VerifyingIterator{Iterator: iter, dst: dst}, nil
 }
 
 // Remove verifies the Remove operation with witness data and perform the given delete operation

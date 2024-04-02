@@ -347,6 +347,11 @@ func (tree *MutableTree) Iterate(fn func(key []byte, value []byte) bool) (stoppe
 	return false, nil
 }
 
+type TracingIterator struct {
+	dbm.Iterator
+	tree *MutableTree
+}
+
 // Iterator returns an iterator over the mutable tree.
 // CONTRACT: no updates are made to the tree while an iterator is active.
 func (tree *MutableTree) Iterator(start, end []byte, ascending bool) (dbm.Iterator, error) {
@@ -361,7 +366,11 @@ func (tree *MutableTree) Iterator(start, end []byte, ascending bool) (dbm.Iterat
 		}
 	}
 
-	return tree.ImmutableTree.Iterator(start, end, ascending)
+	iter, err := tree.ImmutableTree.Iterator(start, end, ascending)
+	if err != nil {
+		return nil, fmt.Errorf("immutable tree iterator: %w", err)
+	}
+	return TracingIterator{iter, tree}, nil
 }
 
 func (tree *MutableTree) set(key []byte, value []byte) (orphans []*Node, updated bool, err error) {
