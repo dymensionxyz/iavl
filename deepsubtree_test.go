@@ -28,6 +28,7 @@ const (
 	cacheSize = math.MaxUint16
 )
 
+// TODO: maybe need to impl tm.DB in full?
 type mustImpl interface {
 	Has(key []byte) (bool, error)
 	Iterator(start, end []byte, ascending bool) (db.Iterator, error)

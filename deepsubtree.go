@@ -291,6 +291,25 @@ func (dst *DeepSubTree) recursiveSet(node *Node, key []byte, value []byte) (
 	return newNode, updated, err
 }
 
+// Has verifies the has operation with witness data and perform the given read operation
+func (dst *DeepSubTree) Has(key []byte) (bool, error) {
+	err := dst.verifyOperationAndProofs("read", key, nil)
+	if err != nil {
+		return false, err
+	}
+	return dst.has(key)
+}
+
+// Get returns the value of the specified key if it exists, or nil otherwise.
+// The returned value must not be modified, since it may point to data stored within IAVL.
+func (dst *DeepSubTree) has(key []byte) (bool, error) {
+	if dst.root == nil {
+		return false, nil
+	}
+
+	return dst.ImmutableTree.Has(key)
+}
+
 // Get verifies the Get operation with witness data and perform the given read operation
 func (dst *DeepSubTree) Get(key []byte) (value []byte, err error) {
 	err = dst.verifyOperationAndProofs("read", key, nil)
