@@ -108,10 +108,9 @@ func TestDeepSubTreeCreateFromProofs(t *testing.T) {
 	require.True(areEqual)
 }
 
-// Tests updating the deepsubtree returns the
-// correct roots
+// Tests that setting new values in the deep subtree, results in a correctly updated root hash.
 // Reference: https://ethresear.ch/t/data-availability-proof-friendly-state-tree-transitions/1453/23
-func TestDeepSubtreeWithUpdates(t *testing.T) {
+func TestDeepSubtreeWithValueUpdates(t *testing.T) {
 	require := require.New(t)
 	getTree := func() *MutableTree {
 		tree, err := getTestTree(5)
