@@ -169,7 +169,6 @@ func (tree *MutableTree) Set(key, value []byte) (updated bool, err error) {
 	}
 	savedTree := tree.ImmutableTree.clone()
 	_, err = tree.setOp(key, value)
-
 	if err != nil {
 		return false, err
 	}
