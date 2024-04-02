@@ -521,6 +521,8 @@ func (tc *testContext) iterate(start, end []byte, ascending bool, stopAfter uint
 
 	var results []result
 
+	// TODO: do I need an operation for New()?
+
 	i := uint8(0)
 	for ; itTree.Valid() && (0 < stopAfter && i < stopAfter); itTree.Next() {
 		i++

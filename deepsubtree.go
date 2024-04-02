@@ -330,7 +330,18 @@ func (dst *DeepSubTree) get(key []byte) ([]byte, error) {
 
 type VerifyingIterator struct {
 	dbm.Iterator
-	dst *DeepSubTree
+	dst       *DeepSubTree
+	verifyErr error
+}
+
+func (iter VerifyingIterator) Next() {
+	// TODO: can we really just simply call the iter.Key? Is that bogus?
+	err := iter.dst.verifyOperationAndProofs("read", iter.Key(), nil)
+	if err != nil {
+		// TODO: need to collapse error
+		iter.verifyErr = err
+	}
+	iter.Iterator.Next()
 }
 
 // Iterator TODO:
