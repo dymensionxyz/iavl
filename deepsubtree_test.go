@@ -252,8 +252,8 @@ type testContext struct {
 	keys set.Set[string]
 }
 
-// Returns random new key half times if genRandom is true.
-// Otherwise, returns a randomly picked existing key.
+// If genRandom, returns a random NEW key, half of the time. If addsNewKey is true, adds the key to the set of keys.
+// Otherwise, returns a randomly picked existing key
 func (tc *testContext) getKey(genRandom bool, addsNewKey bool) (key []byte, err error) {
 	tree, r, keys := tc.tree, tc.r, tc.keys
 	if genRandom && readByte(r) < math.MaxUint8/2 {
@@ -305,7 +305,7 @@ func (tc *testContext) setInDST(key []byte, value []byte) error {
 		return err
 	}
 	if !areEqual {
-		return errors.New("Add: Unequal roots for Deep subtree and IAVL tree")
+		return errors.New("iavl and deep subtree roots are not equal")
 	}
 	return nil
 }
