@@ -328,6 +328,19 @@ func (dst *DeepSubTree) get(key []byte) ([]byte, error) {
 	return dst.ImmutableTree.Get(key)
 }
 
+type VerifyingIterator struct {
+	dbm.Iterator
+}
+
+// Iterator TODO:
+func (dst *DeepSubTree) Iterator(start, end []byte, ascending bool) (dbm.Iterator, error) {
+	iter, err := dst.ImmutableTree.Iterator(start, end, ascending)
+	if err != nil {
+		return nil, fmt.Errorf("immutable tree iterator: %w", err)
+	}
+	return &VerifyingIterator{Iterator: iter}, nil
+}
+
 // Remove verifies the Remove operation with witness data and perform the given delete operation
 func (dst *DeepSubTree) Remove(key []byte) (value []byte, removed bool, err error) {
 	err = dst.verifyOperationAndProofs("delete", key, nil)
