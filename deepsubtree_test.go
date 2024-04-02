@@ -266,12 +266,14 @@ func (tc *testContext) getByte() byte {
 
 // If genRandom, returns a random NEW key, half of the time. If addsNewKey is true, adds the key to the set of keys.
 // Otherwise, returns a randomly picked existing key
+// If we're not creating keys, and none already exist, returns the blank key
 func (tc *testContext) getKey(genRandom bool, addsNewKey bool) (key []byte, err error) {
 	tree, r, keys := tc.tree, tc.r, tc.keys
 	if genRandom && tc.getByte() < math.MaxUint8/2 {
-		k := make([]byte, tc.getByte()/2+1)
-		r.Read(k)
-		_, err := tree.Get(k)
+		k := make([]byte, 4)
+		_, err := r.Read(k)
+		tc.require.NoError(err)
+		_, err = tree.Get(k)
 		if err != nil {
 			return nil, err
 		}
@@ -510,7 +512,7 @@ func (tc *testContext) iterate(start, end []byte, ascending bool, stopAfter uint
 func FuzzBatchAddReverse(f *testing.F) {
 	f.Fuzz(func(t *testing.T, input []byte) {
 		require := require.New(t)
-		if len(input) < 300 {
+		if len(input) < 200 {
 			return
 		}
 		tree, err := NewMutableTreeWithOpts(db.NewMemDB(), cacheSize, nil, true)
@@ -527,7 +529,7 @@ func FuzzBatchAddReverse(f *testing.F) {
 			require,
 			0,
 		}
-		bytesNeededWorstCase := 100
+		bytesNeededWorstCase := 5
 		for i := 0; bytesNeededWorstCase < r.Len(); i++ {
 			tc.byteReqs = 0
 			b, err := r.ReadByte()
@@ -540,7 +542,7 @@ func FuzzBatchAddReverse(f *testing.F) {
 			case Set:
 				keyToAdd, err := tc.getKey(true, true)
 				require.NoError(err)
-				t.Logf("%d: Add: %s\n", i, string(keyToAdd))
+				t.Logf("%d: Add: %x\n", i, keyToAdd)
 				value := make([]byte, 32)
 				binary.BigEndian.PutUint64(value, uint64(i))
 				err = tc.set(keyToAdd, value)
@@ -550,7 +552,7 @@ func FuzzBatchAddReverse(f *testing.F) {
 			case Remove:
 				keyToDelete, err := tc.getKey(false, false)
 				require.NoError(err)
-				t.Logf("%d: Remove: %s\n", i, string(keyToDelete))
+				t.Logf("%d: Remove: %x\n", i, keyToDelete)
 				err = tc.remove(keyToDelete)
 				if err != nil {
 					t.Error(err)
@@ -559,7 +561,7 @@ func FuzzBatchAddReverse(f *testing.F) {
 			case Get:
 				keyToGet, err := tc.getKey(true, false)
 				require.NoError(err)
-				t.Logf("%d: Get: %s\n", i, string(keyToGet))
+				t.Logf("%d: Get: %x\n", i, keyToGet)
 				err = tc.get(keyToGet)
 				if err != nil {
 					t.Error(err)
@@ -567,7 +569,7 @@ func FuzzBatchAddReverse(f *testing.F) {
 			case Has:
 				keyToGet, err := tc.getKey(true, false)
 				require.NoError(err)
-				t.Logf("%d: Has: %s\n", i, string(keyToGet))
+				t.Logf("%d: Has: %x\n", i, keyToGet)
 				err = tc.has(keyToGet)
 				if err != nil {
 					t.Error(err)
@@ -582,7 +584,7 @@ func FuzzBatchAddReverse(f *testing.F) {
 				if tc.getByte()%2 == 0 {
 					stopAfter = tc.getByte()
 				}
-				t.Logf("%d: Iterate: [%s,%s,%t,%d]\n", i, string(keyA), string(keyB), ascending, stopAfter)
+				t.Logf("%d: Iterate: [%x,%x,%t,%d]\n", i, keyA, keyB, ascending, stopAfter)
 				err = tc.iterate(keyA, keyB, ascending, stopAfter)
 				if err != nil {
 					t.Error(err)
