@@ -529,13 +529,11 @@ func FuzzBatchAddReverse(f *testing.F) {
 			require,
 			0,
 		}
-		bytesNeededWorstCase := 5
+		bytesNeededWorstCase := 20 // we might need up to this many, per operation
 		for i := 0; bytesNeededWorstCase < r.Len(); i++ {
 			tc.byteReqs = 0
 			b, err := r.ReadByte()
-			if err != nil {
-				continue
-			}
+			require.NoError(err)
 			op := op(int(b) % int(Noop))
 			require.NoError(err)
 			switch op {
