@@ -411,7 +411,7 @@ func (tc *testContext) has(key []byte) error {
 }
 
 // Performs the Iterate operation  TODO:..
-func (tc *testContext) iterate(start, end []byte, ascending bool, stopAfter *int) error {
+func (tc *testContext) iterate(start, end []byte, ascending bool, stopAfter *uint8) error {
 	if start == nil || end == nil {
 		return nil
 	}
@@ -439,7 +439,7 @@ func (tc *testContext) iterate(start, end []byte, ascending bool, stopAfter *int
 
 	var results []result
 
-	i := 0
+	i := uint8(0)
 	for ; itTree.Valid() && (stopAfter == nil || i < *stopAfter); itTree.Next() {
 		i++
 		s, e := itTree.Domain()
@@ -488,7 +488,7 @@ func (tc *testContext) iterate(start, end []byte, ascending bool, stopAfter *int
 			return fmt.Errorf("error mismatch")
 		}
 	}
-	if i != len(results) {
+	if int(i) != len(results) {
 		return fmt.Errorf("valid mismatch")
 	}
 
@@ -506,7 +506,7 @@ func (tc *testContext) iterate(start, end []byte, ascending bool, stopAfter *int
 func FuzzBatchAddReverse(f *testing.F) {
 	f.Fuzz(func(t *testing.T, input []byte) {
 		require := require.New(t)
-		if len(input) < 100 {
+		if len(input) < 150 {
 			return
 		}
 		tree, err := NewMutableTreeWithOpts(db.NewMemDB(), cacheSize, nil, true)
@@ -521,7 +521,7 @@ func FuzzBatchAddReverse(f *testing.F) {
 			dst,
 			keys,
 		}
-		for i := 0; r.Len() != 0; i++ {
+		for i := 0; 6 < r.Len(); i++ {
 			b, err := r.ReadByte()
 			if err != nil {
 				continue
@@ -571,10 +571,10 @@ func FuzzBatchAddReverse(f *testing.F) {
 				require.NoError(err)
 				ascending := readByte(r)%2 == 0
 				t.Logf("%d: Iterate: [%s,%s,%t]\n", i, string(keyA), string(keyB), ascending)
-				var stopAfter *int
+				var stopAfter *uint8
 				if readByte(r)%2 == 0 {
-					err := binary.Read(r, binary.BigEndian, stopAfter)
-					require.NoError(err)
+					x := readByte(r)
+					stopAfter = &x
 				}
 				err = tc.iterate(keyA, keyB, ascending, stopAfter)
 				if err != nil {
