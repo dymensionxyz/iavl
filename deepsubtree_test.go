@@ -62,7 +62,7 @@ func TestEmptyDeepSubtree(t *testing.T) {
 	require.True(areEqual)
 }
 
-// Tests creating step-by-step to match a regular tree, and checks if roots are equal
+// Tests creating deep subtree step-by-step to match a regular tree, and checks if roots are equal
 func TestDeepSubTreeCreateFromProofs(t *testing.T) {
 	require := require.New(t)
 	getTree := func() *MutableTree {
