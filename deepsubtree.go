@@ -291,7 +291,7 @@ func (dst *DeepSubTree) recursiveSet(node *Node, key []byte, value []byte) (
 	return newNode, updated, err
 }
 
-// Verifies the Get operation with witness data and perform the given read operation
+// Get verifies the Get operation with witness data and perform the given read operation
 func (dst *DeepSubTree) Get(key []byte) (value []byte, err error) {
 	err = dst.verifyOperationAndProofs("read", key, nil)
 	if err != nil {
@@ -310,7 +310,7 @@ func (dst *DeepSubTree) get(key []byte) ([]byte, error) {
 	return dst.ImmutableTree.Get(key)
 }
 
-// Verifies the Remove operation with witness data and perform the given delete operation
+// Remove verifies the Remove operation with witness data and perform the given delete operation
 func (dst *DeepSubTree) Remove(key []byte) (value []byte, removed bool, err error) {
 	err = dst.verifyOperationAndProofs("delete", key, nil)
 	if err != nil {
@@ -586,7 +586,10 @@ func (dst *DeepSubTree) addExistenceProof(proof *ics23.ExistenceProof) error {
 		}
 		prevHash = inner.hash
 
-		dst.saveNodeIfNeeded(inner)
+		err = dst.saveNodeIfNeeded(inner)
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -626,6 +629,8 @@ func fromLeafOp(lop *ics23.LeafOp, key, value []byte) (*Node, error) {
 	return node, nil
 }
 
+// creates an inner node, whose child hash is prevHash
+// the node child pointers are not set
 func fromInnerOp(iop *ics23.InnerOp, prevHash []byte) (*Node, error) {
 	r := bytes.NewReader(iop.Prefix)
 	height, err := binary.ReadVarint(r)
