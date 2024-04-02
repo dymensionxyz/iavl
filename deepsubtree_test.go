@@ -28,6 +28,13 @@ const (
 	cacheSize = math.MaxUint16
 )
 
+type mustImpl interface {
+	Has(key []byte) (bool, error)
+	Iterator(start, end []byte, ascending bool) (db.Iterator, error)
+}
+
+var _ mustImpl = (*DeepSubTree)(nil)
+
 // Returns whether given trees have equal hashes
 func haveEqualRoots(tree1 *MutableTree, tree2 *MutableTree) (bool, error) {
 	rootHash, err := tree1.WorkingHash()
