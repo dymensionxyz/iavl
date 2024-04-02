@@ -248,6 +248,82 @@ func TestDeepSubtreeWithAddsAndDeletes(t *testing.T) {
 	}
 }
 
+// A simple sanity check for the iterator - rely on the fuzz test instead, for completeness
+func TestDeepSubtreeWithIterator(t *testing.T) {
+	require := require.New(t)
+	getTree := func() *MutableTree {
+		tree, err := getTestTree(5)
+		require.NoError(err)
+
+		tree.Set([]byte("f"), []byte{5})
+		tree.Set([]byte("e"), []byte{4})
+		tree.Set([]byte("d"), []byte{3})
+		tree.Set([]byte("c"), []byte{2})
+		tree.Set([]byte("b"), []byte{1})
+		// don't include a for readability of edge iterators
+
+		_, _, err = tree.SaveVersion()
+		require.NoError(err)
+		return tree
+	}
+
+	tree := getTree()
+	rootHash, err := tree.WorkingHash()
+	require.NoError(err)
+
+	dst := NewDeepSubTree(db.NewMemDB(), 100, false, tree.version)
+	require.NoError(err)
+	dst.SetInitialRootHash(tree.root.hash)
+
+	// insert key/value pairs in tree
+	allkeys := [][]byte{
+		[]byte("f"), []byte("e"), []byte("d"), []byte("c"), []byte("b"),
+	}
+
+	// Put all keys inside the tree one by one
+	for _, key := range allkeys {
+		ics23proof, err := tree.GetMembershipProof(key)
+		require.NoError(err)
+		err = dst.AddExistenceProofs([]*ics23.ExistenceProof{
+			ics23proof.GetExist(),
+		}, rootHash)
+		require.NoError(err)
+	}
+
+	areEqual, err := haveEqualRoots(dst.MutableTree, tree)
+	require.NoError(err)
+	require.True(areEqual)
+
+	tc := testContext{
+		tree:    tree,
+		dst:     dst,
+		require: require,
+	}
+
+	type tCase struct {
+		start, end []byte
+		ascending  bool
+		stopAfter  uint8
+	}
+
+	for _, c := range []tCase{
+		{[]byte("a"), []byte("c"), true, 0},
+		{[]byte("b"), []byte("z"), true, 0},
+		{[]byte("b"), []byte("f"), true, 0},
+		{[]byte("a"), []byte("c"), false, 0},
+		{[]byte("b"), []byte("z"), false, 0},
+		{[]byte("b"), []byte("f"), false, 0},
+		{[]byte("a"), []byte("c"), true, 2},
+		{[]byte("b"), []byte("z"), true, 2},
+		{[]byte("b"), []byte("f"), true, 2},
+		{[]byte("a"), []byte("c"), false, 2},
+		{[]byte("b"), []byte("z"), false, 2},
+		{[]byte("b"), []byte("f"), false, 2},
+	} {
+		require.NoError(tc.iterate(c.start, c.end, c.ascending, c.stopAfter))
+	}
+}
+
 type testContext struct {
 	r        *bytes.Reader
 	tree     *MutableTree
