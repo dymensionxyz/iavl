@@ -361,8 +361,9 @@ type TracingIterator struct {
 
 func (iter TracingIterator) Next() {
 	// TODO(danwt): need to clone? if it fails first time, try cloning, see what Manav did
+	iter.tree.ndb.keysAccessed = make(set.Set[string])
+	k := iter.Key()
 	iter.Iterator.Next()
-
 	keysAccessed := iter.tree.ndb.keysAccessed.Values()
 
 	existenceProofs, err := iter.tree.reapExistenceProofs(keysAccessed)
@@ -372,7 +373,7 @@ func (iter TracingIterator) Next() {
 	}
 	iter.tree.witnessData = append(iter.tree.witnessData, WitnessData{
 		Operation: "read",
-		Key:       iter.Key(),
+		Key:       k,
 		Proofs:    existenceProofs,
 	})
 }
@@ -384,8 +385,6 @@ func (iter TracingIterator) Valid() bool {
 // Iterator returns an iterator over the mutable tree.
 // CONTRACT: no updates are made to the tree while an iterator is active.
 func (tree *MutableTree) Iterator(start, end []byte, ascending bool) (dbm.Iterator, error) {
-	tree.ndb.keysAccessed = make(set.Set[string])
-
 	var iter dbm.Iterator
 	var err error
 
