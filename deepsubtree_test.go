@@ -782,6 +782,27 @@ func FuzzAllOps(f *testing.F) {
 	})
 }
 
+func TestRapid(t *testing.T) {
+	rapid.Check(t, func(t *rapid.T) {
+		choices := []int{
+			int(Set),
+			// int(Get),
+			// int(Has),
+			// int(Remove),
+			int(Iterate),
+		}
+		getOp := rapid.SampledFrom(choices)
+		getInt := rapid.Int8Min(0)
+		keys :=
+
+		s := rapid.SliceOf(rapid.String()).Draw(t, "s")
+		sort.Strings(s)
+		if !sort.StringsAreSorted(s) {
+			t.Fatalf("unsorted after sort: %v", s)
+		}
+	})
+}
+
 func TestSortStrings(t *testing.T) {
 	rapid.Check(t, func(t *rapid.T) {
 		s := rapid.SliceOf(rapid.String()).Draw(t, "s")
