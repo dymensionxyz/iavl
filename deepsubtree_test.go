@@ -310,6 +310,7 @@ func TestDeepSubtreeWithIterator(t *testing.T) {
 
 	for _, c := range []tCase{
 		// tree has b,c,d,e,f
+		{[]byte("a"), []byte("z"), true, 0, 5},
 		{[]byte("a"), []byte("c"), true, 0, 1},
 		{[]byte("b"), []byte("z"), true, 0, 5},
 		{[]byte("b"), []byte("f"), true, 0, 4},
@@ -534,7 +535,7 @@ func (tc *testContext) iterate(start, end []byte, ascending bool, stopAfter uint
 	// TODO: do I need an operation for New()?
 
 	i := uint8(0)
-	for ; itTree.Valid() && (0 < stopAfter && i < stopAfter); itTree.Next() {
+	for ; itTree.Valid() && (stopAfter == 0 || i < stopAfter); itTree.Next() {
 		i++
 		s, e := itTree.Domain()
 		k := itTree.Key()
@@ -561,7 +562,7 @@ func (tc *testContext) iterate(start, end []byte, ascending bool, stopAfter uint
 	}
 
 	i = 0
-	for ; itDST.Valid() && (0 < stopAfter && i < stopAfter); itDST.Next() {
+	for ; itDST.Valid() && (stopAfter == 0 || i < stopAfter); itDST.Next() {
 		s, e := itDST.Domain()
 		k := itDST.Key()
 		v := itDST.Value()
