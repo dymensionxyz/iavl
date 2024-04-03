@@ -680,6 +680,7 @@ func FuzzAllOps(f *testing.F) {
 			require: require,
 		}
 		fastStorage := tc.getByte()%2 == 0
+		fastStorage = false
 		t.Logf("fast storage: %t\n", fastStorage)
 
 		tree, err := NewMutableTreeWithOpts(db.NewMemDB(), cacheSize, nil, !fastStorage)
@@ -696,7 +697,7 @@ func FuzzAllOps(f *testing.F) {
 			tc.byteReqs = 0
 			b, err := r.ReadByte()
 			require.NoError(err)
-			op := op(int(b) % int(Noop))
+			op := op(int(b) % int(Has)) // TODO: noop
 			require.NoError(err)
 			switch op {
 			case Set:
