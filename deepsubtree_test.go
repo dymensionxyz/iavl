@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"math"
 	"slices"
-	"strconv"
 	"testing"
 
 	"github.com/chrispappas/golang-generics-set/set"
@@ -392,40 +391,6 @@ func TestReplication(t *testing.T) {
 	}
 }
 
-// Is a replication for a bug found during fuzzing
-func TestReplication2(t *testing.T) {
-	require := require.New(t)
-
-	for _, fastStorage := range []bool{false} {
-		t.Run("fastStorage="+fmt.Sprint(fastStorage), func(t *testing.T) {
-			tree, err := NewMutableTreeWithOpts(db.NewMemDB(), cacheSize, nil, !fastStorage)
-			require.NoError(err)
-			tree.SetTracingEnabled(true)
-			dst := NewDeepSubTree(db.NewMemDB(), cacheSize, !fastStorage, 0)
-			keys := make(set.Set[string])
-			tc := testContext{
-				tree:    tree,
-				dst:     dst,
-				keys:    keys,
-				require: require,
-			}
-
-			// err = tc.remove([]byte("a"))
-			// require.NoError(err)
-
-			for i := range []int{
-				0, 2, 7, 1, 3, 8, 9, 7,
-			} {
-				err := tc.set([]byte(strconv.Itoa(i)), []byte{1})
-				require.NoError(err)
-			}
-
-			err = tc.has([]byte(strconv.Itoa(7)))
-			require.NoError(err)
-		})
-	}
-}
-
 type testContext struct {
 	r        *bytes.Reader
 	tree     *MutableTree
@@ -739,7 +704,7 @@ func FuzzAllOps(f *testing.F) {
 			tc.byteReqs = 0
 			b, err := r.ReadByte()
 			require.NoError(err)
-			op := op(int(b) % int(Iterate)) // TODO: noop
+			op := op(int(b) % int(Noop)) // TODO: noop
 			require.NoError(err)
 			switch op {
 			// TODO: this only tests keys which are known to be present.. is that right?
