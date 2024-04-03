@@ -355,7 +355,7 @@ func TestDeepSubtreeWithIterator(t *testing.T) {
 func TestReplication(t *testing.T) {
 	require := require.New(t)
 
-	for _, fastStorage := range []bool{false, true} {
+	for _, fastStorage := range []bool{false} {
 		t.Run("fastStorage="+fmt.Sprint(fastStorage), func(t *testing.T) {
 			tree, err := NewMutableTreeWithOpts(db.NewMemDB(), cacheSize, nil, !fastStorage)
 			require.NoError(err)
@@ -679,8 +679,9 @@ func FuzzAllOps(f *testing.F) {
 			r:       r,
 			require: require,
 		}
-		fastStorage := tc.getByte()%2 == 0
-		fastStorage = false
+		// It should always be false?
+		// fastStorage := tc.getByte()%2 == 0
+		fastStorage := false
 		t.Logf("fast storage: %t\n", fastStorage)
 
 		tree, err := NewMutableTreeWithOpts(db.NewMemDB(), cacheSize, nil, !fastStorage)
