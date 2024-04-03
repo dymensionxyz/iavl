@@ -334,7 +334,8 @@ func TestDeepSubtreeWithIterator(t *testing.T) {
 	}
 }
 
-func TestDetermReplicate(t *testing.T) {
+// Is a replication for a bug found during fuzzing
+func TestReplication(t *testing.T) {
 	require := require.New(t)
 	getTree := func() *MutableTree {
 		tree, err := getTestTree(5)
@@ -392,14 +393,17 @@ func TestDetermReplicate(t *testing.T) {
 		require: require,
 	}
 
-	n, err := tc.iterate([]byte("a"), []byte("b"), true, 0)
+	_ = tc.dst.printNodeDeepSubtree(tc.dst.root, 0)
+	n, err := tc.iterate([]byte("a"), []byte("c"), true, 0)
 	require.NoError(err)
-	require.Equal(1, n)
-	err = tc.remove([]byte("f"))
+	require.Equal(2, n)
+	err = tc.set([]byte("f"), []byte{6})
 	require.NoError(err)
-	n, err = tc.iterate([]byte("a"), []byte("b"), true, 0)
+	fmt.Println("PRINTED")
+	_ = tc.dst.printNodeDeepSubtree(tc.dst.root, 0)
+	n, err = tc.iterate([]byte("a"), []byte("c"), true, 0)
 	require.NoError(err)
-	require.Equal(1, n)
+	require.Equal(2, n)
 }
 
 type testContext struct {
@@ -586,15 +590,13 @@ func (tc *testContext) iterate(start, end []byte, ascending bool, stopAfter uint
 		TODO: do I need to explicitly test Domain,Valid,Next,Key,Value,Error,Close? In varying dynamic (non usual) ways?
 	*/
 
-	tree.resetWitnessData() // TODO: justify/check
+	l := len(tree.witnessData)
 
 	// Set key-value pair in IAVL tree
 	itTree, err := tree.Iterator(start, end, ascending)
 	if err != nil {
 		return
 	}
-
-	defer itTree.Close()
 
 	type result struct {
 		start []byte
@@ -630,7 +632,7 @@ func (tc *testContext) iterate(start, end []byte, ascending bool, stopAfter uint
 
 	itTreeCloseErr := itTree.Close()
 
-	dst.SetWitnessData(slices.Clone(tree.witnessData)) // TODO: need clone?
+	dst.SetWitnessData(slices.Clone(tree.witnessData[l:])) // TODO: need clone?
 
 	// Set key-value pair in IAVL tree
 	itDST, err := dst.Iterator(start, end, ascending)
@@ -671,12 +673,12 @@ func (tc *testContext) iterate(start, end []byte, ascending bool, stopAfter uint
 		return 0, fmt.Errorf("close error mismatch")
 	}
 
-	fmt.Println(fmt.Sprintf("iterated through: %d", len(results)))
 	return len(results), nil
 }
 
 // Fuzz tests different combinations of Get, Remove, Set, Has, Iterate operations generated in
 // a random order with keys related to operations chosen randomly
+// go test -run=FuzzAllOps -count=1 --fuzz=Fuzz .
 func FuzzAllOps(f *testing.F) {
 	f.Fuzz(func(t *testing.T, input []byte) {
 		require := require.New(t)
@@ -755,6 +757,7 @@ func FuzzAllOps(f *testing.F) {
 				if err != nil {
 					t.Fatal(err)
 				}
+
 			default:
 				panic("unhandled default case")
 			}
