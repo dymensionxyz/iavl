@@ -390,7 +390,6 @@ func (iter TracingIterator) Next() {
 		Proofs:    existenceProofs,
 		// TODO: I'm pretty sure it's correct that we dont need to put a value in here
 	})
-	fmt.Println("foo")
 }
 
 // Iterator returns an iterator over the mutable tree.

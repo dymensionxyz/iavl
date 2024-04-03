@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"slices"
 	"testing"
 
 	"github.com/chrispappas/golang-generics-set/set"
@@ -301,26 +302,32 @@ func TestDeepSubtreeWithIterator(t *testing.T) {
 	}
 
 	type tCase struct {
-		start, end []byte
-		ascending  bool
-		stopAfter  uint8
+		start, end          []byte
+		ascending           bool
+		stopAfter           uint8
+		nVisitedSanityCheck int
 	}
 
 	for _, c := range []tCase{
-		{[]byte("a"), []byte("c"), true, 0},
-		{[]byte("b"), []byte("z"), true, 0},
-		{[]byte("b"), []byte("f"), true, 0},
-		{[]byte("a"), []byte("c"), false, 0},
-		{[]byte("b"), []byte("z"), false, 0},
-		{[]byte("b"), []byte("f"), false, 0},
-		{[]byte("a"), []byte("c"), true, 2},
-		{[]byte("b"), []byte("z"), true, 2},
-		{[]byte("b"), []byte("f"), true, 2},
-		{[]byte("a"), []byte("c"), false, 2},
-		{[]byte("b"), []byte("z"), false, 2},
-		{[]byte("b"), []byte("f"), false, 2},
+		// tree has b,c,d,e,f
+		{[]byte("a"), []byte("c"), true, 0, 1},
+		{[]byte("b"), []byte("z"), true, 0, 5},
+		{[]byte("b"), []byte("f"), true, 0, 4},
+		{[]byte("a"), []byte("c"), false, 0, 1},
+		{[]byte("b"), []byte("z"), false, 0, 5},
+		{[]byte("b"), []byte("f"), false, 0, 4},
+		{[]byte("a"), []byte("c"), true, 2, 1},
+		{[]byte("b"), []byte("z"), true, 2, 2},
+		{[]byte("b"), []byte("f"), true, 2, 2},
+		{[]byte("a"), []byte("c"), false, 2, 1},
+		{[]byte("b"), []byte("z"), false, 2, 2},
+		{[]byte("b"), []byte("f"), false, 2, 2},
 	} {
-		require.NoError(tc.iterate(c.start, c.end, c.ascending, c.stopAfter))
+		t.Run(fmt.Sprintf("start=%s,end=%s,ascending=%t,stopAfter=%d", c.start, c.end, c.ascending, c.stopAfter), func(t *testing.T) {
+			nVisited, err := tc.iterate(c.start, c.end, c.ascending, c.stopAfter)
+			require.NoError(err)
+			require.Equal(c.nVisitedSanityCheck, nVisited)
+		})
 	}
 }
 
@@ -493,9 +500,10 @@ func (tc *testContext) has(key []byte) error {
 
 // Performs the Iterate operation  TODO:..
 // if stopAfter is positive, the iterations will be capped
-func (tc *testContext) iterate(start, end []byte, ascending bool, stopAfter uint8) error {
+// returns the number of tree items visited
+func (tc *testContext) iterate(start, end []byte, ascending bool, stopAfter uint8) (nVisited int, err error) {
 	if start == nil || end == nil {
-		return nil
+		return
 	}
 	tree, dst := tc.tree, tc.dst
 
@@ -503,10 +511,12 @@ func (tc *testContext) iterate(start, end []byte, ascending bool, stopAfter uint
 		TODO: do I need to explicitly test Domain,Valid,Next,Key,Value,Error,Close? In varying dynamic (non usual) ways?
 	*/
 
+	tree.resetWitnessData() // TODO: justify/check
+
 	// Set key-value pair in IAVL tree
 	itTree, err := tree.Iterator(start, end, ascending)
 	if err != nil {
-		return err
+		return
 	}
 
 	defer itTree.Close()
@@ -542,13 +552,12 @@ func (tc *testContext) iterate(start, end []byte, ascending bool, stopAfter uint
 
 	itTreeCloseErr := itTree.Close()
 
-	witness := tree.witnessData[len(tree.witnessData)-1]
-	dst.SetWitnessData([]WitnessData{witness})
+	dst.SetWitnessData(slices.Clone(tree.witnessData)) // TODO: need clone?
 
 	// Set key-value pair in IAVL tree
 	itDST, err := dst.Iterator(start, end, ascending)
 	if err != nil {
-		return err
+		return
 	}
 
 	i = 0
@@ -560,29 +569,29 @@ func (tc *testContext) iterate(start, end []byte, ascending bool, stopAfter uint
 		r := results[i]
 		i++
 		if !bytes.Equal(r.start, s) || !bytes.Equal(r.end, e) {
-			return fmt.Errorf("start/end mismatch")
+			return 0, fmt.Errorf("start/end mismatch")
 		}
 		if !bytes.Equal(r.key, k) {
-			return fmt.Errorf("key mismatch")
+			return 0, fmt.Errorf("key mismatch")
 		}
 		if !bytes.Equal(r.value, v) {
-			return fmt.Errorf("value mismatch")
+			return 0, fmt.Errorf("value mismatch")
 		}
 		if !errors.Is(r.err, err) || !errors.Is(err, r.err) { // TODO: makes sense?
-			return fmt.Errorf("error mismatch")
+			return 0, fmt.Errorf("error mismatch")
 		}
 	}
 	if int(i) != len(results) {
-		return fmt.Errorf("valid cnt mismatch: expect %d: got %d", len(results), i)
+		return 0, fmt.Errorf("valid cnt mismatch: expect %d: got %d", len(results), i)
 	}
 
 	itDSTCloseErr := itDST.Close()
 
 	if !errors.Is(itTreeCloseErr, itDSTCloseErr) || !errors.Is(itDSTCloseErr, itTreeCloseErr) { // TODO: makes sense?
-		return fmt.Errorf("close error mismatch")
+		return 0, fmt.Errorf("close error mismatch")
 	}
 
-	return nil
+	return len(results), nil
 }
 
 // Fuzz tests different combinations of Get, Remove, Set operations generated in
@@ -661,7 +670,7 @@ func FuzzBatchAddReverse(f *testing.F) {
 					stopAfter = tc.getByte()
 				}
 				t.Logf("%d: Iterate: [%x,%x,%t,%d]\n", i, keyA, keyB, ascending, stopAfter)
-				err = tc.iterate(keyA, keyB, ascending, stopAfter)
+				_, err = tc.iterate(keyA, keyB, ascending, stopAfter)
 				if err != nil {
 					t.Error(err)
 				}
