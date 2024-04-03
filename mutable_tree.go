@@ -360,9 +360,6 @@ type TracingIterator struct {
 }
 
 func (iter TracingIterator) Next() {
-	if iter.err != nil {
-		return
-	}
 	// TODO(danwt): need to clone? if it fails first time, try cloning, see what Manav did
 	iter.Iterator.Next()
 
@@ -378,6 +375,10 @@ func (iter TracingIterator) Next() {
 		Key:       iter.Key(),
 		Proofs:    existenceProofs,
 	})
+}
+
+func (iter TracingIterator) Valid() bool {
+	return iter.err == nil && iter.Iterator.Valid()
 }
 
 // Iterator returns an iterator over the mutable tree.

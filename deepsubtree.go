@@ -331,20 +331,24 @@ func (dst *DeepSubTree) get(key []byte) ([]byte, error) {
 // VerifyingIterator wraps an iterator and verifies proofs for each key as it goes.
 type VerifyingIterator struct {
 	dbm.Iterator
-	dst       *DeepSubTree
-	verifyErr error
+	dst *DeepSubTree
+	err error
 }
 
 func (iter VerifyingIterator) Next() {
-	if iter.verifyErr != nil {
+	if iter.err != nil {
 		return
 	}
 	err := iter.dst.verifyOperationAndProofs("read", iter.Key(), nil)
 	if err != nil {
-		iter.verifyErr = err
+		iter.err = err
 		return
 	}
 	iter.Iterator.Next()
+}
+
+func (iter VerifyingIterator) Valid() bool {
+	return iter.err == nil && iter.Iterator.Valid()
 }
 
 // Iterator returns an iterator that can be used to iterate over a domain of keys in ascending order,

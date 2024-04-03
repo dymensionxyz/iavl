@@ -536,6 +536,7 @@ func (tc *testContext) iterate(start, end []byte, ascending bool, stopAfter uint
 
 	i := uint8(0)
 	for ; itTree.Valid() && (stopAfter == 0 || i < stopAfter); itTree.Next() {
+
 		i++
 		s, e := itTree.Domain()
 		k := itTree.Key()
