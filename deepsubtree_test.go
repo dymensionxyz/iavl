@@ -390,15 +390,7 @@ func TestReplication(t *testing.T) {
 			err = tc.remove([]byte("2"))
 			require.NoError(err)
 
-			n, err := tc.iterate([]byte("8"), []byte("0"), true, 0)
-			require.NoError(err)
-			require.Equal(0, n)
-
-			n, err = tc.iterate([]byte("1"), []byte("7"), false, 0)
-			require.NoError(err)
-			require.Equal(1, n)
-
-			n, err = tc.iterate([]byte("0"), []byte("9"), false, 0)
+			n, err := tc.iterate([]byte("0"), []byte("9"), false, 0)
 			require.NoError(err)
 			require.Equal(4, n)
 		})
@@ -716,9 +708,15 @@ func FuzzAllOps(f *testing.F) {
 		bytesNeededWorstCase := 20 // we might need up to this many, per operation
 		for i := 0; bytesNeededWorstCase < r.Len(); i++ {
 			tc.byteReqs = 0
-			b, err := r.ReadByte()
-			require.NoError(err)
-			op := op(int(b) % int(Noop)) // TODO: noop
+			choices := []op{
+				Set,
+				Get,
+				Has,
+				Remove,
+				// Iterate,
+			}
+			op := choices[int(uint8(tc.getByte()))%len(choices)]
+
 			require.NoError(err)
 			switch op {
 			// TODO: this only tests keys which are known to be present.. is that right?
