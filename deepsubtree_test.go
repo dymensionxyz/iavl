@@ -263,7 +263,7 @@ func TestDeepSubtreeWithIterator(t *testing.T) {
 		tree.Set([]byte("d"), []byte{3})
 		tree.Set([]byte("c"), []byte{2})
 		tree.Set([]byte("b"), []byte{1})
-		// don't include a for readability of edge iterators
+		// don't include 'a', to improve readability of edge iterators
 
 		_, _, err = tree.SaveVersion()
 		require.NoError(err)
@@ -332,6 +332,90 @@ func TestDeepSubtreeWithIterator(t *testing.T) {
 			require.Equal(c.nVisitedSanityCheck, nVisited)
 		})
 	}
+}
+
+func TestDetermReplicate(t *testing.T) {
+	/*
+	   deepsubtree_test.go:638: 0: Add: a
+	       deepsubtree_test.go:638: 1: Add: b
+	       deepsubtree_test.go:680: 2: Iterate: [z,w,false,0]
+	       deepsubtree_test.go:638: 3: Add: c
+	       deepsubtree_test.go:638: 4: Add: d
+	       deepsubtree_test.go:680: 5: Iterate: [i,j,true,57]
+	       deepsubtree_test.go:680: 6: Iterate: [y,x,false,56]
+	       deepsubtree_test.go:638: 7: Add: e
+	       deepsubtree_test.go:638: 8: Add: f
+	       deepsubtree_test.go:657: 9: Get: h
+	       deepsubtree_test.go:638: 10: Add: g
+	       deepsubtree_test.go:680: 11: Iterate: [k,l,true,48]
+	*/
+	require := require.New(t)
+	getTree := func() *MutableTree {
+		tree, err := getTestTree(5)
+		require.NoError(err)
+
+		tree.SetTracingEnabled(true)
+
+		tree.Set([]byte("g"), []byte{7})
+		tree.Set([]byte("f"), []byte{6})
+		tree.Set([]byte("e"), []byte{5})
+		tree.Set([]byte("d"), []byte{4})
+		tree.Set([]byte("c"), []byte{3})
+		tree.Set([]byte("b"), []byte{2})
+		tree.Set([]byte("a"), []byte{1})
+
+		_, _, err = tree.SaveVersion()
+		require.NoError(err)
+		return tree
+	}
+
+	tree := getTree()
+	rootHash, err := tree.WorkingHash()
+	require.NoError(err)
+
+	dst := NewDeepSubTree(db.NewMemDB(), 100, false, tree.version)
+	require.NoError(err)
+	dst.SetInitialRootHash(tree.root.hash)
+
+	// insert key/value pairs in tree
+	allkeys := [][]byte{
+		[]byte("a"),
+		[]byte("b"),
+		[]byte("c"),
+		[]byte("d"),
+		[]byte("e"),
+		[]byte("f"),
+		[]byte("g"),
+	}
+
+	// Put all keys inside the tree one by one
+	for _, key := range allkeys {
+		ics23proof, err := tree.GetMembershipProof(key)
+		require.NoError(err)
+		err = dst.AddExistenceProofs([]*ics23.ExistenceProof{
+			ics23proof.GetExist(),
+		}, rootHash)
+		require.NoError(err)
+	}
+
+	areEqual, err := haveEqualRoots(dst.MutableTree, tree)
+	require.NoError(err)
+	require.True(areEqual)
+
+	tc := testContext{
+		tree:    tree,
+		dst:     dst,
+		require: require,
+	}
+
+	_, err = tc.iterate([]byte("z"), []byte("w"), false, 0)
+	require.NoError(err)
+	_, err = tc.iterate([]byte("i"), []byte("j"), true, 0)
+	require.NoError(err)
+	_, err = tc.iterate([]byte("y"), []byte("x"), false, 0)
+	require.NoError(err)
+	_, err = tc.iterate([]byte("k"), []byte("l"), true, 0)
+	require.NoError(err)
 }
 
 type testContext struct {
