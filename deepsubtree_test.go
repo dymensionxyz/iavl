@@ -256,6 +256,8 @@ func TestDeepSubtreeWithIterator(t *testing.T) {
 		tree, err := getTestTree(5)
 		require.NoError(err)
 
+		tree.SetTracingEnabled(true)
+
 		tree.Set([]byte("f"), []byte{5})
 		tree.Set([]byte("e"), []byte{4})
 		tree.Set([]byte("d"), []byte{3})
@@ -552,6 +554,8 @@ func (tc *testContext) iterate(start, end []byte, ascending bool, stopAfter uint
 		})
 	}
 
+	tc.require.NoError(itTree.(TracingIterator).err)
+
 	itTreeCloseErr := itTree.Close()
 
 	dst.SetWitnessData(slices.Clone(tree.witnessData)) // TODO: need clone?
@@ -574,15 +578,17 @@ func (tc *testContext) iterate(start, end []byte, ascending bool, stopAfter uint
 			return 0, fmt.Errorf("start/end mismatch")
 		}
 		if !bytes.Equal(r.key, k) {
-			return 0, fmt.Errorf("key mismatch")
+			return 0, fmt.Errorf("key mismatch: expect: %x: got: %x", r.key, k)
 		}
 		if !bytes.Equal(r.value, v) {
-			return 0, fmt.Errorf("value mismatch")
+			return 0, fmt.Errorf("value mismatch: expect: %x: got: %x", r.value, v)
 		}
 		if !errors.Is(r.err, err) || !errors.Is(err, r.err) { // TODO: makes sense?
 			return 0, fmt.Errorf("error mismatch")
 		}
 	}
+	tc.require.NoError(itDST.(VerifyingIterator).err)
+
 	if int(i) != len(results) {
 		return 0, fmt.Errorf("valid cnt mismatch: expect %d: got %d", len(results), i)
 	}

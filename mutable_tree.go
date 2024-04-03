@@ -386,6 +386,9 @@ func (iter TracingIterator) Valid() bool {
 func (tree *MutableTree) Iterator(start, end []byte, ascending bool) (dbm.Iterator, error) {
 	tree.ndb.keysAccessed = make(set.Set[string])
 
+	var iter dbm.Iterator
+	var err error
+
 	if !tree.skipFastStorageUpgrade {
 		isFastCacheEnabled, err := tree.IsFastCacheEnabled()
 		if err != nil {
@@ -393,13 +396,12 @@ func (tree *MutableTree) Iterator(start, end []byte, ascending bool) (dbm.Iterat
 		}
 
 		if isFastCacheEnabled {
-			return NewUnsavedFastIterator(start, end, ascending, tree.ndb, tree.unsavedFastNodeAdditions, tree.unsavedFastNodeRemovals), nil
+			iter = NewUnsavedFastIterator(start, end, ascending, tree.ndb, tree.unsavedFastNodeAdditions, tree.unsavedFastNodeRemovals)
 		}
 	}
 
-	iter, err := tree.ImmutableTree.Iterator(start, end, ascending)
-	if err != nil {
-		return nil, fmt.Errorf("immutable tree iterator: %w", err)
+	if iter != nil {
+		iter, err = tree.ImmutableTree.Iterator(start, end, ascending)
 	}
 
 	if !tree.tracingEnabled {
