@@ -7,7 +7,10 @@ import (
 	"fmt"
 	"math"
 	"slices"
+	"sort"
 	"testing"
+
+	"pgregory.net/rapid"
 
 	"github.com/chrispappas/golang-generics-set/set"
 	ics23 "github.com/confio/ics23/go"
@@ -776,5 +779,15 @@ func FuzzAllOps(f *testing.F) {
 			}
 		}
 		t.Log("Done")
+	})
+}
+
+func TestSortStrings(t *testing.T) {
+	rapid.Check(t, func(t *rapid.T) {
+		s := rapid.SliceOf(rapid.String()).Draw(t, "s")
+		sort.Strings(s)
+		if !sort.StringsAreSorted(s) {
+			t.Fatalf("unsorted after sort: %v", s)
+		}
 	})
 }

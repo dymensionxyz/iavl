@@ -9,6 +9,7 @@ require (
 	github.com/stretchr/testify v1.8.0
 	github.com/tendermint/tm-db v0.6.6
 	golang.org/x/crypto v0.0.0-20220525230936-793ad666bf5e
+	pgregory.net/rapid v1.1.0
 )
 
 require (
