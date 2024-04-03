@@ -295,9 +295,13 @@ func (dst *DeepSubTree) recursiveSet(node *Node, key []byte, value []byte) (
 func (dst *DeepSubTree) Has(key []byte) (bool, error) {
 	err := dst.verifyOperationAndProofs("read", key, nil)
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("verify operation and proofs: %w", err)
 	}
-	return dst.has(key)
+	found, err := dst.has(key)
+	if err != nil {
+		return false, fmt.Errorf("has: %w", err)
+	}
+	return found, nil
 }
 
 // Has returns if the key exists

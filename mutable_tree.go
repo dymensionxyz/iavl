@@ -268,7 +268,7 @@ func (tree *MutableTree) Has(key []byte) (bool, error) {
 	if !tree.tracingEnabled {
 		return tree.hasOp(key)
 	}
-	value, err := tree.hasOp(key)
+	found, err := tree.hasOp(key)
 	if err != nil {
 		return false, err
 	}
@@ -284,7 +284,7 @@ func (tree *MutableTree) Has(key []byte) (bool, error) {
 		Key:       key,
 		Proofs:    existenceProofs,
 	})
-	return value, nil
+	return found, nil
 }
 
 // hasOp returns the value of the specified key if it exists, or nil otherwise.
