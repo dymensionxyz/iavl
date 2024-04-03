@@ -352,50 +352,38 @@ func (tree *MutableTree) Iterate(fn func(key []byte, value []byte) bool) (stoppe
 	return false, nil
 }
 
-// TracingIterator wraps an iterator with tracing info
-// The Domain method is not overwritten TODO: should it be?
-// TODO: can I del this whole thing? doesn't seem necessary
+// TracingIterator wraps an iterator to capture tracing info
 type TracingIterator struct {
 	dbm.Iterator
 	tree *MutableTree
-
-	/*
-		Which methods need to be overridden?
-		No
-			Domain
-			Valid
-			Key
-			Value
-			Error
-			Close
-		Yes
-			Next
-	*/
+	err  error
 }
 
 func (iter TracingIterator) Next() {
-	// TODO(danwt): need to clone? if it fails first time, try cloning
+	if iter.err != nil {
+		return
+	}
+	// TODO(danwt): need to clone? if it fails first time, try cloning, see what Manav did
 	iter.Iterator.Next()
 
 	keysAccessed := iter.tree.ndb.keysAccessed.Values()
 
 	existenceProofs, err := iter.tree.reapExistenceProofs(keysAccessed)
 	if err != nil {
-		// TODO(danwt): what to do? Can I collapse errors? Don't lose it!
-		panic(err)
+		iter.err = err
+		return
 	}
 	iter.tree.witnessData = append(iter.tree.witnessData, WitnessData{
 		Operation: "read",
-		Key:       iter.Key(), // TODO: correct?
+		Key:       iter.Key(),
 		Proofs:    existenceProofs,
-		// TODO: I'm pretty sure it's correct that we dont need to put a value in here
 	})
 }
 
 // Iterator returns an iterator over the mutable tree.
 // CONTRACT: no updates are made to the tree while an iterator is active.
 func (tree *MutableTree) Iterator(start, end []byte, ascending bool) (dbm.Iterator, error) {
-	tree.ndb.keysAccessed = make(set.Set[string]) // TODO(danwt): gonna have to do this on each subop instead?
+	tree.ndb.keysAccessed = make(set.Set[string])
 
 	if !tree.skipFastStorageUpgrade {
 		isFastCacheEnabled, err := tree.IsFastCacheEnabled()
@@ -418,7 +406,7 @@ func (tree *MutableTree) Iterator(start, end []byte, ascending bool) (dbm.Iterat
 	}
 
 	// Proofs and witnesses are reaped as the iterator is used
-	return TracingIterator{iter, tree}, nil
+	return TracingIterator{iter, tree, nil}, nil
 }
 
 func (tree *MutableTree) set(key []byte, value []byte) (orphans []*Node, updated bool, err error) {

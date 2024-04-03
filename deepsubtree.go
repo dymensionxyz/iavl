@@ -328,6 +328,7 @@ func (dst *DeepSubTree) get(key []byte) ([]byte, error) {
 	return dst.ImmutableTree.Get(key)
 }
 
+// VerifyingIterator wraps an iterator and verifies proofs for each key as it goes.
 type VerifyingIterator struct {
 	dbm.Iterator
 	dst       *DeepSubTree
@@ -335,16 +336,19 @@ type VerifyingIterator struct {
 }
 
 func (iter VerifyingIterator) Next() {
-	// TODO: can we really just simply call the iter.Key? Is that bogus?
+	if iter.verifyErr != nil {
+		return
+	}
 	err := iter.dst.verifyOperationAndProofs("read", iter.Key(), nil)
 	if err != nil {
-		// TODO: need to collapse error
 		iter.verifyErr = err
+		return
 	}
 	iter.Iterator.Next()
 }
 
-// Iterator TODO:
+// Iterator returns an iterator that can be used to iterate over a domain of keys in ascending order,
+// verifying proofs for each key as it goes.
 func (dst *DeepSubTree) Iterator(start, end []byte, ascending bool) (dbm.Iterator, error) {
 	iter, err := dst.ImmutableTree.Iterator(start, end, ascending)
 	if err != nil {
