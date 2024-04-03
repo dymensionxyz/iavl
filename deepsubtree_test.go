@@ -640,7 +640,7 @@ func FuzzAllOps(f *testing.F) {
 				binary.BigEndian.PutUint64(value, uint64(i))
 				err = tc.set(keyToAdd, value)
 				if err != nil {
-					t.Error(err)
+					t.Fatal(err)
 				}
 			case Remove:
 				keyToDelete, err := tc.getKey(false, false)
@@ -648,7 +648,7 @@ func FuzzAllOps(f *testing.F) {
 				t.Logf("%d: Remove: %x\n", i, keyToDelete)
 				err = tc.remove(keyToDelete)
 				if err != nil {
-					t.Error(err)
+					t.Fatal(err)
 				}
 				keys.Delete(string(keyToDelete))
 			case Get:
@@ -657,7 +657,7 @@ func FuzzAllOps(f *testing.F) {
 				t.Logf("%d: Get: %x\n", i, keyToGet)
 				err = tc.get(keyToGet)
 				if err != nil {
-					t.Error(err)
+					t.Fatal(err)
 				}
 			case Has:
 				keyToGet, err := tc.getKey(true, false)
@@ -665,7 +665,7 @@ func FuzzAllOps(f *testing.F) {
 				t.Logf("%d: Has: %x\n", i, keyToGet)
 				err = tc.has(keyToGet)
 				if err != nil {
-					t.Error(err)
+					t.Fatal(err)
 				}
 			case Iterate:
 				keyA, err := tc.getKey(true, false)
@@ -680,7 +680,7 @@ func FuzzAllOps(f *testing.F) {
 				t.Logf("%d: Iterate: [%x,%x,%t,%d]\n", i, keyA, keyB, ascending, stopAfter)
 				_, err = tc.iterate(keyA, keyB, ascending, stopAfter)
 				if err != nil {
-					t.Error(err)
+					t.Fatal(err)
 				}
 			default:
 				panic("unhandled default case")
