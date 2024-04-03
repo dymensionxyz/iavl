@@ -188,7 +188,7 @@ func TestDeepSubtreeWithValueUpdates(t *testing.T) {
 		values := [][]byte{{10}, {20}}
 		for i, subsetKey := range subsetKeys {
 			err := tc.set(subsetKey, values[i])
-			require.Nil(err)
+			require.NoError(err)
 		}
 	}
 }
@@ -247,7 +247,10 @@ func TestDeepSubtreeWithAddsAndDeletes(t *testing.T) {
 	// Add all the keys we intend to add and check root hashes stay equal
 	for i, keyToAdd := range keysToAdd {
 		err := tc.set(keyToAdd, valuesToAdd[i])
-		require.Nil(err)
+		require.NoError(err)
+		err = tc.has(keyToAdd)
+		require.NoError(err)
+
 	}
 
 	require.Equal(len(keysToAdd), len(valuesToAdd))
@@ -257,7 +260,7 @@ func TestDeepSubtreeWithAddsAndDeletes(t *testing.T) {
 		keyToDelete := keysToAdd[i]
 
 		err := tc.remove(keyToDelete)
-		require.Nil(err)
+		require.NoError(err)
 	}
 }
 
@@ -517,20 +520,19 @@ func (tc *testContext) get(key []byte) error {
 	}
 	tree, dst := tc.tree, tc.dst
 
-	// Set key-value pair in IAVL tree
 	treeValue, err := tree.Get(key)
 	if err != nil {
-		return err
+		return fmt.Errorf("tree get: %w", err)
 	}
 	witness := tree.witnessData[len(tree.witnessData)-1]
 	dst.SetWitnessData([]WitnessData{witness})
 
 	dstValue, err := dst.Get(key)
 	if err != nil {
-		return err
+		return fmt.Errorf("dst get: %w", err)
 	}
 	if !bytes.Equal(dstValue, treeValue) {
-		return fmt.Errorf("get key from dst: %s", string(key))
+		return fmt.Errorf("get mismatch: key: %x: expect %x: got: %x", key, treeValue, dstValue)
 	}
 
 	return nil
@@ -544,21 +546,20 @@ func (tc *testContext) has(key []byte) error {
 	}
 	tree, dst := tc.tree, tc.dst
 
-	// Set key-value pair in IAVL tree
-	treeValue, err := tree.Has(key)
+	hasExpect, err := tree.Has(key)
 	if err != nil {
-		return err
+		return fmt.Errorf("tree has: %w", err)
 	}
 	witness := tree.witnessData[len(tree.witnessData)-1]
 	dst.SetWitnessData([]WitnessData{witness})
 
-	dstValue, err := dst.Has(key)
+	hasGot, err := dst.Has(key)
 	if err != nil {
-		return err
+		return fmt.Errorf("dst has: key: %x: %w", key, err)
 	}
 
-	if dstValue != treeValue {
-		return fmt.Errorf("get key from dst: %s", string(key))
+	if hasGot != hasExpect {
+		return fmt.Errorf("has mismatch: key: %x: expect %t: got: %t", key, hasExpect, hasGot)
 	}
 
 	return nil
@@ -698,7 +699,7 @@ func FuzzAllOps(f *testing.F) {
 			tc.byteReqs = 0
 			b, err := r.ReadByte()
 			require.NoError(err)
-			op := op(int(b) % int(Has)) // TODO: noop
+			op := op(int(b) % int(Iterate)) // TODO: noop
 			require.NoError(err)
 			switch op {
 			case Set:
