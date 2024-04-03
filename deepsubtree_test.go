@@ -371,22 +371,36 @@ func TestReplication(t *testing.T) {
 				keys:    keys,
 				require: require,
 			}
-			err = tc.set([]byte("a"), []byte{1})
+			err = tc.set([]byte("7"), []byte{1})
+			require.NoError(err)
+			err = tc.set([]byte("3"), []byte{1})
+			require.NoError(err)
+			err = tc.set([]byte("2"), []byte{1})
+			require.NoError(err)
+			err = tc.set([]byte("8"), []byte{1})
+			require.NoError(err)
+			err = tc.remove([]byte("3"))
+			require.NoError(err)
+			err = tc.set([]byte("3"), []byte{1})
+			require.NoError(err)
+			err = tc.set([]byte("0"), []byte{1})
+			require.NoError(err)
+			err = tc.set([]byte("9"), []byte{1})
+			require.NoError(err)
+			err = tc.remove([]byte("2"))
 			require.NoError(err)
 
-			err = tc.set([]byte("b"), []byte{1})
+			n, err := tc.iterate([]byte("8"), []byte("0"), true, 0)
 			require.NoError(err)
+			require.Equal(0, n)
 
-			n, err := tc.iterate([]byte("a"), []byte("c"), true, 0)
+			n, err = tc.iterate([]byte("1"), []byte("7"), false, 0)
 			require.NoError(err)
-			require.Equal(2, n)
+			require.Equal(1, n)
 
-			err = tc.set([]byte("a"), []byte{1})
+			n, err = tc.iterate([]byte("0"), []byte("9"), false, 0)
 			require.NoError(err)
-
-			n, err = tc.iterate([]byte("a"), []byte("c"), true, 0)
-			require.NoError(err)
-			require.Equal(2, n)
+			require.Equal(4, n)
 		})
 	}
 }
