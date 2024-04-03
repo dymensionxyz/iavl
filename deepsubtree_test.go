@@ -620,6 +620,7 @@ func (tc *testContext) iterate(start, end []byte, ascending bool, stopAfter uint
 		v := itTree.Value()
 		err := itTree.Error()
 
+		fmt.Printf("iterating: %x\n", k)
 		results = append(results, result{
 			start: s,
 			end:   e,
