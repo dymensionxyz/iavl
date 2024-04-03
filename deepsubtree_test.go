@@ -335,20 +335,6 @@ func TestDeepSubtreeWithIterator(t *testing.T) {
 }
 
 func TestDetermReplicate(t *testing.T) {
-	/*
-	   deepsubtree_test.go:638: 0: Add: a
-	       deepsubtree_test.go:638: 1: Add: b
-	       deepsubtree_test.go:680: 2: Iterate: [z,w,false,0]
-	       deepsubtree_test.go:638: 3: Add: c
-	       deepsubtree_test.go:638: 4: Add: d
-	       deepsubtree_test.go:680: 5: Iterate: [i,j,true,57]
-	       deepsubtree_test.go:680: 6: Iterate: [y,x,false,56]
-	       deepsubtree_test.go:638: 7: Add: e
-	       deepsubtree_test.go:638: 8: Add: f
-	       deepsubtree_test.go:657: 9: Get: h
-	       deepsubtree_test.go:638: 10: Add: g
-	       deepsubtree_test.go:680: 11: Iterate: [k,l,true,48]
-	*/
 	require := require.New(t)
 	getTree := func() *MutableTree {
 		tree, err := getTestTree(5)
@@ -356,7 +342,6 @@ func TestDetermReplicate(t *testing.T) {
 
 		tree.SetTracingEnabled(true)
 
-		tree.Set([]byte("g"), []byte{7})
 		tree.Set([]byte("f"), []byte{6})
 		tree.Set([]byte("e"), []byte{5})
 		tree.Set([]byte("d"), []byte{4})
@@ -385,7 +370,6 @@ func TestDetermReplicate(t *testing.T) {
 		[]byte("d"),
 		[]byte("e"),
 		[]byte("f"),
-		[]byte("g"),
 	}
 
 	// Put all keys inside the tree one by one
@@ -408,14 +392,14 @@ func TestDetermReplicate(t *testing.T) {
 		require: require,
 	}
 
-	_, err = tc.iterate([]byte("z"), []byte("w"), false, 0)
+	n, err := tc.iterate([]byte("a"), []byte("b"), true, 0)
 	require.NoError(err)
-	_, err = tc.iterate([]byte("i"), []byte("j"), true, 0)
+	require.Equal(1, n)
+	err = tc.remove([]byte("f"))
 	require.NoError(err)
-	_, err = tc.iterate([]byte("y"), []byte("x"), false, 0)
+	n, err = tc.iterate([]byte("a"), []byte("b"), true, 0)
 	require.NoError(err)
-	_, err = tc.iterate([]byte("k"), []byte("l"), true, 0)
-	require.NoError(err)
+	require.Equal(1, n)
 }
 
 type testContext struct {
@@ -443,6 +427,10 @@ func (tc *testContext) getKey(genRandom bool, addsNewKey bool) (key []byte, err 
 		k := make([]byte, 4)
 		_, err := r.Read(k)
 		tc.require.NoError(err)
+
+		n := tc.getByte() % 16
+		binary.BigEndian.PutUint32(k, uint32(n))
+
 		_, err = tree.Get(k)
 		if err != nil {
 			return nil, err
@@ -683,6 +671,7 @@ func (tc *testContext) iterate(start, end []byte, ascending bool, stopAfter uint
 		return 0, fmt.Errorf("close error mismatch")
 	}
 
+	fmt.Println(fmt.Sprintf("iterated through: %d", len(results)))
 	return len(results), nil
 }
 
