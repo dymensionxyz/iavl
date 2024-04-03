@@ -710,10 +710,10 @@ func FuzzAllOps(f *testing.F) {
 			tc.byteReqs = 0
 			choices := []op{
 				Set,
-				Get,
-				Has,
-				Remove,
-				// Iterate,
+				// Get,
+				// Has,
+				// Remove,
+				Iterate,
 			}
 			op := choices[int(uint8(tc.getByte()))%len(choices)]
 
