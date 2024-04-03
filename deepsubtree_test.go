@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math"
 	"slices"
+	"strconv"
 	"testing"
 
 	"github.com/chrispappas/golang-generics-set/set"
@@ -391,6 +392,40 @@ func TestReplication(t *testing.T) {
 	}
 }
 
+// Is a replication for a bug found during fuzzing
+func TestReplication2(t *testing.T) {
+	require := require.New(t)
+
+	for _, fastStorage := range []bool{false} {
+		t.Run("fastStorage="+fmt.Sprint(fastStorage), func(t *testing.T) {
+			tree, err := NewMutableTreeWithOpts(db.NewMemDB(), cacheSize, nil, !fastStorage)
+			require.NoError(err)
+			tree.SetTracingEnabled(true)
+			dst := NewDeepSubTree(db.NewMemDB(), cacheSize, !fastStorage, 0)
+			keys := make(set.Set[string])
+			tc := testContext{
+				tree:    tree,
+				dst:     dst,
+				keys:    keys,
+				require: require,
+			}
+
+			// err = tc.remove([]byte("a"))
+			// require.NoError(err)
+
+			for i := range []int{
+				0, 2, 7, 1, 3, 8, 9, 7,
+			} {
+				err := tc.set([]byte(strconv.Itoa(i)), []byte{1})
+				require.NoError(err)
+			}
+
+			err = tc.has([]byte(strconv.Itoa(7)))
+			require.NoError(err)
+		})
+	}
+}
+
 type testContext struct {
 	r        *bytes.Reader
 	tree     *MutableTree
@@ -413,6 +448,8 @@ func (tc *testContext) getByte() byte {
 func (tc *testContext) getKey(genRandom bool, addsNewKey bool) (key []byte, err error) {
 	tree, r, keys := tc.tree, tc.r, tc.keys
 	if genRandom && tc.getByte() < math.MaxUint8/2 {
+
+		// generate a key
 		k := make([]byte, 4)
 		_, err := r.Read(k)
 		tc.require.NoError(err)
@@ -420,10 +457,14 @@ func (tc *testContext) getKey(genRandom bool, addsNewKey bool) (key []byte, err 
 		n := tc.getByte() % 16
 		binary.BigEndian.PutUint32(k, uint32(n))
 
+		/////////
+		// TODO: why is this block here? can use has instead?
 		_, err = tree.Get(k)
 		if err != nil {
 			return nil, err
 		}
+		////////
+
 		if addsNewKey {
 			keys.Add(string(k))
 		}
@@ -607,7 +648,6 @@ func (tc *testContext) iterate(start, end []byte, ascending bool, stopAfter uint
 		v := itTree.Value()
 		err := itTree.Error()
 
-		fmt.Printf("iterating: %x\n", k)
 		results = append(results, result{
 			start: s,
 			end:   e,
@@ -702,6 +742,7 @@ func FuzzAllOps(f *testing.F) {
 			op := op(int(b) % int(Iterate)) // TODO: noop
 			require.NoError(err)
 			switch op {
+			// TODO: this only tests keys which are known to be present.. is that right?
 			case Set:
 				keyToAdd, err := tc.getKey(true, true)
 				require.NoError(err)
