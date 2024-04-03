@@ -595,9 +595,9 @@ func (tc *testContext) iterate(start, end []byte, ascending bool, stopAfter uint
 	return len(results), nil
 }
 
-// Fuzz tests different combinations of Get, Remove, Set operations generated in
+// Fuzz tests different combinations of Get, Remove, Set, Has, Iterate operations generated in
 // a random order with keys related to operations chosen randomly
-func FuzzBatchAddReverse(f *testing.F) {
+func FuzzAllOps(f *testing.F) {
 	f.Fuzz(func(t *testing.T, input []byte) {
 		require := require.New(t)
 		if len(input) < 200 {
