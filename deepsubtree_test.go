@@ -354,65 +354,38 @@ func TestDeepSubtreeWithIterator(t *testing.T) {
 // Is a replication for a bug found during fuzzing
 func TestReplication(t *testing.T) {
 	require := require.New(t)
-	getTree := func() *MutableTree {
-		tree, err := getTestTree(5)
-		require.NoError(err)
 
-		tree.SetTracingEnabled(true)
+	for _, fastStorage := range []bool{false, true} {
+		t.Run("fastStorage="+fmt.Sprint(fastStorage), func(t *testing.T) {
+			tree, err := NewMutableTreeWithOpts(db.NewMemDB(), cacheSize, nil, !fastStorage)
+			require.NoError(err)
+			tree.SetTracingEnabled(true)
+			dst := NewDeepSubTree(db.NewMemDB(), cacheSize, !fastStorage, 0)
+			keys := make(set.Set[string])
+			tc := testContext{
+				tree:    tree,
+				dst:     dst,
+				keys:    keys,
+				require: require,
+			}
+			err = tc.set([]byte("a"), []byte{1})
+			require.NoError(err)
 
-		_, err = tree.Set([]byte("a"), []byte{1})
-		require.NoError(err)
+			err = tc.set([]byte("b"), []byte{1})
+			require.NoError(err)
 
-		_, _, err = tree.SaveVersion()
-		require.NoError(err)
-		return tree
+			n, err := tc.iterate([]byte("a"), []byte("c"), true, 0)
+			require.NoError(err)
+			require.Equal(2, n)
+
+			err = tc.set([]byte("a"), []byte{1})
+			require.NoError(err)
+
+			n, err = tc.iterate([]byte("a"), []byte("c"), true, 0)
+			require.NoError(err)
+			require.Equal(2, n)
+		})
 	}
-
-	tree := getTree()
-	rootHash, err := tree.WorkingHash()
-	require.NoError(err)
-
-	dst := NewDeepSubTree(db.NewMemDB(), 100, false, tree.version)
-	require.NoError(err)
-	dst.SetInitialRootHash(tree.root.hash)
-
-	// insert key/value pairs in tree
-	allkeys := [][]byte{
-		[]byte("a"),
-	}
-
-	// Put all keys inside the tree one by one
-	for _, key := range allkeys {
-		ics23proof, err := tree.GetMembershipProof(key)
-		require.NoError(err)
-		err = dst.AddExistenceProofs([]*ics23.ExistenceProof{
-			ics23proof.GetExist(),
-		}, rootHash)
-		require.NoError(err)
-	}
-
-	areEqual, err := haveEqualRoots(dst.MutableTree, tree)
-	require.NoError(err)
-	require.True(areEqual)
-
-	tc := testContext{
-		tree:    tree,
-		dst:     dst,
-		require: require,
-	}
-
-	fmt.Println("PRINT1")
-	//_ = tc.dst.printNodeDeepSubtree(tc.dst.root, 0)
-	n, err := tc.iterate([]byte("a"), []byte("c"), true, 0)
-	require.NoError(err)
-	require.Equal(1, n)
-	err = tc.set([]byte("a"), []byte{6})
-	require.NoError(err)
-	fmt.Println("PRINT2")
-	//_ = tc.dst.printNodeDeepSubtree(tc.dst.root, 0)
-	n, err = tc.iterate([]byte("a"), []byte("c"), true, 0)
-	require.NoError(err)
-	require.Equal(1, n)
 }
 
 type testContext struct {
@@ -700,20 +673,24 @@ func FuzzAllOps(f *testing.F) {
 		if len(input) < 200 {
 			return
 		}
-		tree, err := NewMutableTreeWithOpts(db.NewMemDB(), cacheSize, nil, true)
+
+		r := bytes.NewReader(input)
+		tc := testContext{
+			r:       r,
+			require: require,
+		}
+		fastStorage := tc.getByte()%2 == 0
+		t.Logf("fast storage: %t\n", fastStorage)
+
+		tree, err := NewMutableTreeWithOpts(db.NewMemDB(), cacheSize, nil, !fastStorage)
 		require.NoError(err)
 		tree.SetTracingEnabled(true)
-		dst := NewDeepSubTree(db.NewMemDB(), cacheSize, true, 0)
-		r := bytes.NewReader(input)
+		dst := NewDeepSubTree(db.NewMemDB(), cacheSize, !fastStorage, 0)
 		keys := make(set.Set[string])
-		tc := testContext{
-			r,
-			tree,
-			dst,
-			keys,
-			require,
-			0,
-		}
+		tc.tree = tree
+		tc.dst = dst
+		tc.keys = keys
+
 		bytesNeededWorstCase := 20 // we might need up to this many, per operation
 		for i := 0; bytesNeededWorstCase < r.Len(); i++ {
 			tc.byteReqs = 0
