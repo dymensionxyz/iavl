@@ -31,7 +31,7 @@ const (
 	cacheSize = math.MaxUint16
 )
 
-// TODO: maybe need to impl tm.DB in full?
+// TODO: maybe need to impl tm.DB in full? TODO(danwt): remove this
 type mustImpl interface {
 	Has(key []byte) (bool, error)
 	Iterator(start, end []byte, ascending bool) (db.Iterator, error)
@@ -80,11 +80,16 @@ func TestDeepSubTreeCreateFromProofs(t *testing.T) {
 		tree, err := getTestTree(5)
 		require.NoError(err)
 
-		tree.Set([]byte("e"), []byte{5})
-		tree.Set([]byte("d"), []byte{4})
-		tree.Set([]byte("c"), []byte{3})
-		tree.Set([]byte("b"), []byte{2})
-		tree.Set([]byte("a"), []byte{1})
+		_, err = tree.Set([]byte("e"), []byte{5})
+		require.NoError(err)
+		_, err = tree.Set([]byte("d"), []byte{4})
+		require.NoError(err)
+		_, err = tree.Set([]byte("c"), []byte{3})
+		require.NoError(err)
+		_, err = tree.Set([]byte("b"), []byte{2})
+		require.NoError(err)
+		_, err = tree.Set([]byte("a"), []byte{1})
+		require.NoError(err)
 
 		_, _, err = tree.SaveVersion()
 		require.NoError(err)
@@ -129,11 +134,16 @@ func TestDeepSubtreeWithValueUpdates(t *testing.T) {
 
 		tree.SetTracingEnabled(true)
 
-		tree.Set([]byte("e"), []byte{5})
-		tree.Set([]byte("d"), []byte{4})
-		tree.Set([]byte("c"), []byte{3})
-		tree.Set([]byte("b"), []byte{2})
-		tree.Set([]byte("a"), []byte{1})
+		_, err = tree.Set([]byte("e"), []byte{5})
+		require.NoError(err)
+		_, err = tree.Set([]byte("d"), []byte{4})
+		require.NoError(err)
+		_, err = tree.Set([]byte("c"), []byte{3})
+		require.NoError(err)
+		_, err = tree.Set([]byte("b"), []byte{2})
+		require.NoError(err)
+		_, err = tree.Set([]byte("a"), []byte{1})
+		require.NoError(err)
 
 		_, _, err = tree.SaveVersion()
 		require.NoError(err)
@@ -193,8 +203,10 @@ func TestDeepSubtreeWithAddsAndDeletes(t *testing.T) {
 
 		tree.SetTracingEnabled(true)
 
-		tree.Set([]byte("b"), []byte{2})
-		tree.Set([]byte("a"), []byte{1})
+		_, err = tree.Set([]byte("b"), []byte{2})
+		require.NoError(err)
+		_, err = tree.Set([]byte("a"), []byte{1})
+		require.NoError(err)
 
 		_, _, err = tree.SaveVersion()
 		require.NoError(err)
@@ -258,11 +270,16 @@ func TestDeepSubtreeWithIterator(t *testing.T) {
 
 		tree.SetTracingEnabled(true)
 
-		tree.Set([]byte("f"), []byte{5})
-		tree.Set([]byte("e"), []byte{4})
-		tree.Set([]byte("d"), []byte{3})
-		tree.Set([]byte("c"), []byte{2})
-		tree.Set([]byte("b"), []byte{1})
+		_, err = tree.Set([]byte("f"), []byte{5})
+		require.NoError(err)
+		_, err = tree.Set([]byte("e"), []byte{4})
+		require.NoError(err)
+		_, err = tree.Set([]byte("d"), []byte{3})
+		require.NoError(err)
+		_, err = tree.Set([]byte("c"), []byte{2})
+		require.NoError(err)
+		_, err = tree.Set([]byte("b"), []byte{1})
+		require.NoError(err)
 		// don't include 'a', to improve readability of edge iterators
 
 		_, _, err = tree.SaveVersion()
@@ -343,12 +360,8 @@ func TestReplication(t *testing.T) {
 
 		tree.SetTracingEnabled(true)
 
-		tree.Set([]byte("f"), []byte{6})
-		tree.Set([]byte("e"), []byte{5})
-		tree.Set([]byte("d"), []byte{4})
-		tree.Set([]byte("c"), []byte{3})
-		tree.Set([]byte("b"), []byte{2})
-		tree.Set([]byte("a"), []byte{1})
+		_, err = tree.Set([]byte("a"), []byte{1})
+		require.NoError(err)
 
 		_, _, err = tree.SaveVersion()
 		require.NoError(err)
@@ -366,11 +379,6 @@ func TestReplication(t *testing.T) {
 	// insert key/value pairs in tree
 	allkeys := [][]byte{
 		[]byte("a"),
-		[]byte("b"),
-		[]byte("c"),
-		[]byte("d"),
-		[]byte("e"),
-		[]byte("f"),
 	}
 
 	// Put all keys inside the tree one by one
@@ -397,14 +405,14 @@ func TestReplication(t *testing.T) {
 	//_ = tc.dst.printNodeDeepSubtree(tc.dst.root, 0)
 	n, err := tc.iterate([]byte("a"), []byte("c"), true, 0)
 	require.NoError(err)
-	require.Equal(2, n)
-	err = tc.set([]byte("f"), []byte{6})
+	require.Equal(1, n)
+	err = tc.set([]byte("a"), []byte{6})
 	require.NoError(err)
 	fmt.Println("PRINT2")
 	//_ = tc.dst.printNodeDeepSubtree(tc.dst.root, 0)
 	n, err = tc.iterate([]byte("a"), []byte("c"), true, 0)
 	require.NoError(err)
-	require.Equal(2, n)
+	require.Equal(1, n)
 }
 
 type testContext struct {
@@ -466,7 +474,8 @@ func (tc *testContext) set(key []byte, value []byte) error {
 	if err != nil {
 		return err
 	}
-	tree.SaveVersion()
+	_, _, err = tree.SaveVersion()
+	tc.require.NoError(err)
 	witness := tree.witnessData[len(tree.witnessData)-1]
 	dst.SetWitnessData([]WitnessData{witness})
 
@@ -475,7 +484,8 @@ func (tc *testContext) set(key []byte, value []byte) error {
 	if err != nil {
 		return err
 	}
-	dst.SaveVersion()
+	_, _, err = dst.SaveVersion()
+	tc.require.NoError(err)
 
 	areEqual, err := haveEqualRoots(dst.MutableTree, tree)
 	if err != nil {
@@ -500,7 +510,9 @@ func (tc *testContext) remove(key []byte) error {
 	if err != nil {
 		return err
 	}
-	tree.SaveVersion()
+	_, _, err = tree.SaveVersion()
+	tc.require.NoError(err)
+
 	witness := tree.witnessData[len(tree.witnessData)-1]
 	dst.SetWitnessData([]WitnessData{witness})
 
@@ -511,7 +523,8 @@ func (tc *testContext) remove(key []byte) error {
 	if !removed {
 		return fmt.Errorf("remove key from dst: %s", string(key))
 	}
-	dst.SaveVersion()
+	_, _, err = dst.SaveVersion()
+	tc.require.NoError(err)
 
 	areEqual, err := haveEqualRoots(dst.MutableTree, tree)
 	if err != nil {
