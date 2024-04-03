@@ -399,7 +399,7 @@ func (tree *MutableTree) Iterator(start, end []byte, ascending bool) (dbm.Iterat
 		}
 	}
 
-	if iter != nil {
+	if iter == nil {
 		iter, err = tree.ImmutableTree.Iterator(start, end, ascending)
 	}
 
