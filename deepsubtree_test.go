@@ -22,8 +22,8 @@ type op int
 
 const (
 	Set op = iota
-	Remove
 	Get
+	Remove
 	Has
 	Iterate
 )
@@ -360,12 +360,13 @@ func (h *helper) getBool(label string) bool {
 }
 
 func (h *helper) getKey(canBeNew bool) int {
-	i := h.getInt("key")
-	/*
-			TODO: I need to make the key return a sensible number,
-		 Maybe I can combine generators, or use the state machine
-	*/
-	return i
+	if canBeNew {
+		return h.getInt("any key")
+	}
+	if h.keys.Len() == 0 {
+		return -1
+	}
+	return rapid.SampledFrom(h.keys.Values()).Draw(h.t, "existing key") // TODO: can you just do this on the fly?
 }
 
 func toBz(i int) []byte {
@@ -378,8 +379,8 @@ func TestRapid(t *testing.T) {
 			Set,
 			Get,
 			Remove,
-			// Has,
-			// Iterate,
+			Has,
+			Iterate,
 		}
 		h := helper{
 			t:        t,
@@ -417,6 +418,10 @@ func TestRapid(t *testing.T) {
 				}
 			case Remove:
 				k := h.getKey(false)
+				if k == -1 {
+					// TODO: fix
+					continue
+				}
 				t.Logf("%d: Remove: %d\n", i, k)
 				h.keys.Delete(k)
 				err = h.remove(k)
@@ -442,7 +447,7 @@ func TestRapid(t *testing.T) {
 				r := h.getKey(true)
 				ascending := h.getBool("ascending")
 				stopAfter := h.getInt("stop after")
-				t.Logf("%d: Iterate: [%x,%x,%t,%d]\n", i, l, r, ascending, stopAfter)
+				t.Logf("%d: Iterate: [l=%d,r=%d,ascending=%t,stopAfter=%d]\n", i, l, r, ascending, stopAfter)
 				_, err = h.iterate(l, r, ascending, stopAfter)
 				if err != nil {
 					t.Fatal(err)
