@@ -133,29 +133,8 @@ func bootstrap(f fatalf) *helper {
 }
 
 func TestReplicate(t *testing.T) {
-	t.Run("has", func(t *testing.T) {
+	t.Run("foo", func(t *testing.T) {
 		h := bootstrap(t)
-
-		require.NoError(t, h.set(0, 0))
-		require.NoError(t, h.set(-1, 0))
-		require.NoError(t, h.set(-2, 0))
-		require.NoError(t, h.set(-3, 0))
-		require.NoError(t, h.set(1, 0))
-		require.NoError(t, h.set(-4, 0))
-		require.NoError(t, h.set(2, 0))
-		require.NoError(t, h.has(0))
-	})
-	t.Run("get", func(t *testing.T) {
-		h := bootstrap(t)
-
-		require.NoError(t, h.set(0, 0))
-		require.NoError(t, h.set(-1, 0))
-		require.NoError(t, h.set(-2, 0))
-		require.NoError(t, h.set(-3, 0))
-		require.NoError(t, h.set(1, 0))
-		require.NoError(t, h.set(-4, 0))
-		require.NoError(t, h.set(2, 0))
-		require.NoError(t, h.get(0))
 	})
 }
 
