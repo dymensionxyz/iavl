@@ -19,16 +19,6 @@ import (
 	db "github.com/tendermint/tm-db"
 )
 
-type op int
-
-const (
-	Set op = iota
-	Get
-	Remove
-	Has
-	Iterate
-)
-
 const (
 	cacheSize = math.MaxUint16
 )
@@ -118,7 +108,44 @@ func TestDeepSubTreeCreateFromProofs(t *testing.T) {
 	require.True(areEqual)
 }
 
-// Performs the Set operation on full IAVL tree first, gets the witness data generated from
+func withRapidSM(t *rapid.T) {
+	h := helper{
+		t: t,
+	}
+
+	fastStorage := false
+	tree, err := NewMutableTreeWithOpts(db.NewMemDB(), cacheSize, nil, !fastStorage)
+	h.NoError(err)
+	tree.SetTracingEnabled(true)
+	dst := NewDeepSubTree(db.NewMemDB(), cacheSize, !fastStorage, 0)
+	h.tree = tree
+	h.dst = dst
+
+	sm := SM{
+		t:    t,
+		h:    &h,
+		keys: make(set.Set[int]),
+	}
+
+	sm.getGen = rapid.Make[GetCmd]()
+	sm.setGen = rapid.Make[SetCmd]()
+	sm.removeGen = rapid.Make[RemoveCmd]()
+	sm.hasGen = rapid.Make[HasCmd]()
+	sm.iterateGen = rapid.Make[IterateCmd]()
+
+	t.Repeat(rapid.StateMachineActions(sm))
+}
+
+func TestFoo(t *testing.T) {
+	rapid.Check(t, withRapidSM)
+}
+
+func FuzzFoo(f *testing.F) {
+	// TODO: sanity check
+	f.Fuzz(rapid.MakeFuzz(withRapidSM))
+}
+
+// Does the Set operation on full IAVL tree first, gets the witness data generated from
 // the operation, and uses that witness data to perform the same operation on the Deep Subtree
 func (h *helper) set(keyI, valueI int) error {
 	key := toBz(keyI)
@@ -141,17 +168,33 @@ func (h *helper) set(keyI, valueI int) error {
 	_, _, err = h.dst.SaveVersion()
 	h.NoError(err)
 
-	areEqual, err := haveEqualRoots(h.dst.MutableTree, h.tree)
-	if err != nil {
-		return err
-	}
-	if !areEqual {
-		return errors.New("iavl and deep subtree roots are not equal")
-	}
 	return nil
 }
 
-// Performs the Remove operation on full IAVL tree first, gets the witness data generated from
+// Does the Get operation on full IAVL tree first, gets the witness data generated from
+// the operation, and uses that witness data to perform the same operation on the Deep Subtree
+func (h *helper) get(keyI int) error {
+	key := toBz(keyI)
+
+	treeValue, err := h.tree.Get(key)
+	if err != nil {
+		return fmt.Errorf("tree get: %w", err)
+	}
+	witness := h.tree.witnessData[len(h.tree.witnessData)-1]
+	h.dst.SetWitnessData([]WitnessData{witness})
+
+	dstValue, err := h.dst.Get(key)
+	if err != nil {
+		return fmt.Errorf("dst get: %w", err)
+	}
+	if !bytes.Equal(dstValue, treeValue) {
+		return fmt.Errorf("get mismatch: key: %x: expect %x: got: %x", key, treeValue, dstValue)
+	}
+
+	return nil
+}
+
+// Does the Remove operation on full IAVL tree first, gets the witness data generated from
 // the operation, and uses that witness data to peform the same operation on the Deep Subtree
 func (h *helper) remove(keyI int) error {
 	key := toBz(keyI)
@@ -177,40 +220,10 @@ func (h *helper) remove(keyI int) error {
 	_, _, err = h.dst.SaveVersion()
 	h.NoError(err)
 
-	areEqual, err := haveEqualRoots(h.dst.MutableTree, h.tree)
-	if err != nil {
-		return err
-	}
-	if !areEqual {
-		return errors.New("iavl and deep subtree roots are not equal")
-	}
 	return nil
 }
 
-// Performs the Get operation on full IAVL tree first, gets the witness data generated from
-// the operation, and uses that witness data to perform the same operation on the Deep Subtree
-func (h *helper) get(keyI int) error {
-	key := toBz(keyI)
-
-	treeValue, err := h.tree.Get(key)
-	if err != nil {
-		return fmt.Errorf("tree get: %w", err)
-	}
-	witness := h.tree.witnessData[len(h.tree.witnessData)-1]
-	h.dst.SetWitnessData([]WitnessData{witness})
-
-	dstValue, err := h.dst.Get(key)
-	if err != nil {
-		return fmt.Errorf("dst get: %w", err)
-	}
-	if !bytes.Equal(dstValue, treeValue) {
-		return fmt.Errorf("get mismatch: key: %x: expect %x: got: %x", key, treeValue, dstValue)
-	}
-
-	return nil
-}
-
-// Performs the Has operation on full IAVL tree first, gets the witness data generated from
+// Does the Has operation on full IAVL tree first, gets the witness data generated from
 // the operation, and uses that witness data to perform the same operation on the Deep Subtree
 func (h *helper) has(keyI int) error {
 	key := toBz(keyI)
@@ -234,7 +247,7 @@ func (h *helper) has(keyI int) error {
 	return nil
 }
 
-// Performs the Iterate operation  TODO:..
+// Does the Iterate operation  TODO:..
 // if stopAfter is positive, the iterations will be capped
 // returns the number of tree items visited
 func (h *helper) iterate(startI, endI int, ascending bool, stopAfter int) (nVisited int, err error) {
@@ -344,10 +357,6 @@ func (h *helper) NoError(err error, msgAndArgs ...any) {
 	}
 }
 
-func toBz(i int) []byte {
-	return []byte(strconv.Itoa(i))
-}
-
 type SM struct {
 	t          *rapid.T
 	h          *helper
@@ -359,12 +368,52 @@ type SM struct {
 	iterateGen *rapid.Generator[IterateCmd]
 }
 
+func toBz(i int) []byte {
+	return []byte(strconv.Itoa(i))
+}
+
 func (sm SM) Check(t *rapid.T) {
 	areEqual, err := haveEqualRoots(sm.h.dst.MutableTree, sm.h.tree)
-	sm.NoError(err)
+	sm.h.NoError(err)
 	if !areEqual {
 		t.Fatal("iavl and deep subtree roots are not equal")
 	}
+}
+
+func (sm SM) Set(t *rapid.T) {
+	cmd := sm.setGen.Draw(t, "set")
+	sm.keys.Add(cmd.K)
+	err := sm.h.set(cmd.K, cmd.V)
+	sm.h.NoError(err)
+}
+
+func (sm SM) Get(t *rapid.T) {
+	cmd := sm.getGen.Draw(t, "get")
+	err := sm.h.get(cmd.K)
+	sm.h.NoError(err)
+}
+
+func (sm SM) Remove(t *rapid.T) {
+	cmd := sm.removeGen.Draw(t, "remove")
+	if !sm.keys.Has(cmd.K) {
+		t.Logf("noop remove")
+		return
+	}
+	sm.keys.Delete(cmd.K)
+	err := sm.h.remove(cmd.K)
+	sm.h.NoError(err)
+}
+
+func (sm SM) Has(t *rapid.T) {
+	cmd := sm.hasGen.Draw(t, "has")
+	err := sm.h.has(cmd.K)
+	sm.h.NoError(err)
+}
+
+func (sm SM) Iterate(t *rapid.T) {
+	cmd := sm.iterateGen.Draw(t, "iterate")
+	_, err := sm.h.iterate(cmd.L, cmd.R, cmd.Ascending, cmd.StopAfter)
+	sm.h.NoError(err)
 }
 
 type SetCmd struct {
@@ -387,83 +436,4 @@ type IterateCmd struct {
 	L, R      int
 	Ascending bool
 	StopAfter int
-}
-
-func (sm SM) Set(t *rapid.T) {
-	cmd := sm.setGen.Draw(t, "set")
-	sm.keys.Add(cmd.K)
-	err := sm.h.set(cmd.K, cmd.V)
-	sm.NoError(err)
-}
-
-func (sm SM) Get(t *rapid.T) {
-	cmd := sm.getGen.Draw(t, "get")
-	err := sm.h.get(cmd.K)
-	sm.NoError(err)
-}
-
-func (sm SM) Remove(t *rapid.T) {
-	cmd := sm.removeGen.Draw(t, "remove")
-	if !sm.keys.Has(cmd.K) {
-		t.Logf("noop remove")
-		return
-	}
-	sm.keys.Delete(cmd.K)
-	err := sm.h.remove(cmd.K)
-	sm.NoError(err)
-}
-
-func (sm SM) Has(t *rapid.T) {
-	cmd := sm.hasGen.Draw(t, "has")
-	err := sm.h.has(cmd.K)
-	sm.NoError(err)
-}
-
-func (sm SM) Iterate(t *rapid.T) {
-	cmd := sm.iterateGen.Draw(t, "iterate")
-	_, err := sm.h.iterate(cmd.L, cmd.R, cmd.Ascending, cmd.StopAfter)
-	sm.NoError(err)
-}
-
-func (sm SM) NoError(err error, msgAndArgs ...any) {
-	if err != nil {
-		sm.t.Fatalf("%v", err)
-	}
-}
-
-func withRapidSM(t *rapid.T) {
-	h := helper{
-		t: t,
-	}
-
-	fastStorage := false
-	tree, err := NewMutableTreeWithOpts(db.NewMemDB(), cacheSize, nil, !fastStorage)
-	h.NoError(err)
-	tree.SetTracingEnabled(true)
-	dst := NewDeepSubTree(db.NewMemDB(), cacheSize, !fastStorage, 0)
-	h.tree = tree
-	h.dst = dst
-
-	sm := SM{
-		t:    t,
-		h:    &h,
-		keys: make(set.Set[int]),
-	}
-
-	sm.getGen = rapid.Make[GetCmd]()
-	sm.setGen = rapid.Make[SetCmd]()
-	sm.removeGen = rapid.Make[RemoveCmd]()
-	sm.hasGen = rapid.Make[HasCmd]()
-	sm.iterateGen = rapid.Make[IterateCmd]()
-
-	t.Repeat(rapid.StateMachineActions(sm))
-}
-
-func TestFoo(t *testing.T) {
-	rapid.Check(t, withRapidSM)
-}
-
-func FuzzFoo(f *testing.F) {
-	// TODO: sanity check
-	f.Fuzz(rapid.MakeFuzz(withRapidSM))
 }
