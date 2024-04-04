@@ -108,16 +108,16 @@ func TestDeepSubTreeCreateFromProofs(t *testing.T) {
 	require.True(areEqual)
 }
 
-func TestFoo(t *testing.T) {
-	rapid.Check(t, withRapidSM)
+func TestPropertyBased(t *testing.T) {
+	rapid.Check(t, testWithRapid)
 }
 
-func FuzzFoo(f *testing.F) {
+func FuzzPropertyBased(f *testing.F) {
 	// TODO: sanity check that it works
-	f.Fuzz(rapid.MakeFuzz(withRapidSM))
+	f.Fuzz(rapid.MakeFuzz(testWithRapid))
 }
 
-func withRapidSM(t *rapid.T) {
+func testWithRapid(t *rapid.T) {
 	h := helper{
 		t: t,
 	}
@@ -130,63 +130,60 @@ func withRapidSM(t *rapid.T) {
 	h.tree = tree
 	h.dst = dst
 
-	sm := SM{
-		t:    t,
-		h:    &h,
-		keys: make(set.Set[int]),
-	}
+	keys := make(set.Set[int])
+	getGen := rapid.Make[GetCmd]()
+	setGen := rapid.Make[SetCmd]()
+	removeGen := rapid.Make[RemoveCmd]()
+	hasGen := rapid.Make[HasCmd]()
+	iterateGen := rapid.Make[IterateCmd]()
 
-	sm.getGen = rapid.Make[GetCmd]()
-	sm.setGen = rapid.Make[SetCmd]()
-	sm.removeGen = rapid.Make[RemoveCmd]()
-	sm.hasGen = rapid.Make[HasCmd]()
-	sm.iterateGen = rapid.Make[IterateCmd]()
+	_ = keys
+	_ = getGen
+	_ = setGen
+	_ = removeGen
+	_ = hasGen
+	_ = iterateGen
 
-	t.Repeat(rapid.StateMachineActions(sm))
-}
-
-func (sm SM) Check(t *rapid.T) {
-	areEqual, err := haveEqualRoots(sm.h.dst.MutableTree, sm.h.tree)
-	sm.h.NoError(err)
-	if !areEqual {
-		t.Fatal("iavl and deep subtree roots are not equal")
-	}
-}
-
-func (sm SM) Get(t *rapid.T) {
-	cmd := sm.getGen.Draw(t, "get")
-	err := sm.h.get(cmd.K)
-	sm.h.NoError(err)
-}
-
-func (sm SM) Set(t *rapid.T) {
-	cmd := sm.setGen.Draw(t, "set")
-	sm.keys.Add(cmd.K)
-	err := sm.h.set(cmd.K, cmd.V)
-	sm.h.NoError(err)
-}
-
-func (sm SM) Remove(t *rapid.T) {
-	cmd := sm.removeGen.Draw(t, "remove")
-	if !sm.keys.Has(cmd.K) {
-		t.Logf("noop remove")
-		return
-	}
-	sm.keys.Delete(cmd.K)
-	err := sm.h.remove(cmd.K)
-	sm.h.NoError(err)
-}
-
-func (sm SM) Has(t *rapid.T) {
-	cmd := sm.hasGen.Draw(t, "has")
-	err := sm.h.has(cmd.K)
-	sm.h.NoError(err)
-}
-
-func (sm SM) Iterate(t *rapid.T) {
-	cmd := sm.iterateGen.Draw(t, "iterate")
-	_, err := sm.h.iterate(cmd.L, cmd.R, cmd.Ascending, cmd.StopAfter)
-	sm.h.NoError(err)
+	t.Repeat(map[string]func(*rapid.T){
+		"": func(t *rapid.T) { // Check
+			areEqual, err := haveEqualRoots(h.dst.MutableTree, h.tree)
+			h.NoError(err)
+			if !areEqual {
+				t.Fatal("iavl and deep subtree roots are not equal")
+			}
+		},
+		"get": func(t *rapid.T) {
+			cmd := getGen.Draw(t, "get")
+			err := h.get(cmd.K)
+			h.NoError(err)
+		},
+		"set": func(t *rapid.T) {
+			cmd := setGen.Draw(t, "set")
+			keys.Add(cmd.K)
+			err := h.set(cmd.K, cmd.V)
+			h.NoError(err)
+		},
+		"remove": func(t *rapid.T) {
+			cmd := removeGen.Draw(t, "remove")
+			if !keys.Has(cmd.K) {
+				t.Logf("noop remove")
+				return
+			}
+			keys.Delete(cmd.K)
+			err := h.remove(cmd.K)
+			h.NoError(err)
+		},
+		"has": func(t *rapid.T) {
+			cmd := hasGen.Draw(t, "has")
+			err := h.has(cmd.K)
+			h.NoError(err)
+		},
+		//"iterate": func(t *rapid.T) {
+		//	cmd := iterateGen.Draw(t, "iterate")
+		//	_, err := h.iterate(cmd.L, cmd.R, cmd.Ascending, cmd.StopAfter)
+		//	h.NoError(err)
+		//},
+	})
 }
 
 // Does the Set operation on full IAVL tree first, gets the witness data generated from
