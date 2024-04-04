@@ -2,12 +2,10 @@ package iavl
 
 import (
 	"bytes"
-	"encoding/binary"
 	"errors"
 	"fmt"
 	"math"
 	"slices"
-	"sort"
 	"strconv"
 	"testing"
 
@@ -238,7 +236,7 @@ func (h *helper) has(keyI int) error {
 // Performs the Iterate operation  TODO:..
 // if stopAfter is positive, the iterations will be capped
 // returns the number of tree items visited
-func (h *helper) iterate(startI, endI int, ascending bool, stopAfter uint8) (nVisited int, err error) {
+func (h *helper) iterate(startI, endI int, ascending bool, stopAfter int) (nVisited int, err error) {
 	/*
 		TODO: do I need to explicitly test Domain,Valid,Next,Key,Value,Error,Close? In varying dynamic (non usual) ways?
 	*/
@@ -266,7 +264,7 @@ func (h *helper) iterate(startI, endI int, ascending bool, stopAfter uint8) (nVi
 
 	// TODO: do I need an operation for New()?
 
-	i := uint8(0)
+	i := 0
 	for ; itTree.Valid() && (stopAfter == 0 || i < stopAfter); itTree.Next() {
 
 		i++
@@ -320,7 +318,7 @@ func (h *helper) iterate(startI, endI int, ascending bool, stopAfter uint8) (nVi
 
 	// h.NoError(itDST.(VerifyingIterator).err) TODO: bring back?
 
-	if int(i) != len(results) {
+	if i != len(results) {
 		return 0, fmt.Errorf("valid cnt mismatch: expect %d: got %d", len(results), i)
 	}
 
@@ -334,12 +332,13 @@ func (h *helper) iterate(startI, endI int, ascending bool, stopAfter uint8) (nVi
 }
 
 type helper struct {
-	t       *rapid.T
-	tree    *MutableTree
-	dst     *DeepSubTree
-	keys    set.Set[string]
-	drawOp  *rapid.Generator[op]
-	drawInt *rapid.Generator[int]
+	t        *rapid.T
+	tree     *MutableTree
+	dst      *DeepSubTree
+	keys     set.Set[int]
+	drawOp   *rapid.Generator[op]
+	drawInt  *rapid.Generator[int]
+	drawBool *rapid.Generator[bool]
 }
 
 func (h *helper) NoError(err error, msgAndArgs ...any) {
@@ -356,12 +355,17 @@ func (h *helper) getInt(label string) int {
 	return h.drawInt.Draw(h.t, label)
 }
 
+func (h *helper) getBool(label string) bool {
+	return h.drawBool.Draw(h.t, label)
+}
+
 func (h *helper) getKey(canBeNew bool) int {
 	i := h.getInt("key")
 	/*
 			TODO: I need to make the key return a sensible number,
 		 Maybe I can combine generators, or use the state machine
 	*/
+	return i
 }
 
 func toBz(i int) []byte {
@@ -372,18 +376,17 @@ func TestRapid(t *testing.T) {
 	rapid.Check(t, func(t *rapid.T) {
 		choices := []op{
 			Set,
-			// int(Get),
-			// int(Has),
-			// int(Remove),
-			Iterate,
+			Get,
+			Remove,
+			// Has,
+			// Iterate,
 		}
-		getOp := rapid.SampledFrom(choices)
-		getInt := rapid.IntRange(0, 100)
 		h := helper{
-			t:       t,
-			drawOp:  getOp,
-			drawInt: getInt,
-			keys:    make(set.Set[string]),
+			t:        t,
+			drawOp:   rapid.SampledFrom(choices),
+			drawInt:  rapid.IntRange(0, 100),
+			drawBool: rapid.Bool(),
+			keys:     make(set.Set[int]),
 		}
 
 		/*
@@ -404,62 +407,47 @@ func TestRapid(t *testing.T) {
 		for i := 0; i < numOps; i++ {
 			switch h.getOp() {
 			case Set:
-				keyToAdd, err := tc.getKey(true, true)
-				require.NoError(err)
-				t.Logf("%d: Add: %x\n", i, keyToAdd)
-				value := make([]byte, 32)
-				binary.BigEndian.PutUint64(value, uint64(i))
-				err = h.set(keyToAdd, value)
+				k := h.getKey(true)
+				v := h.getInt("value")
+				h.keys.Add(k)
+				t.Logf("%d: Add: %d\n", i, k)
+				err = h.set(k, v)
 				if err != nil {
 					t.Fatal(err)
 				}
 			case Remove:
-				keyToDelete, err := tc.getKey(false, false)
-				require.NoError(err)
-				t.Logf("%d: Remove: %x\n", i, keyToDelete)
-				err = h.remove(keyToDelete)
+				k := h.getKey(false)
+				t.Logf("%d: Remove: %d\n", i, k)
+				h.keys.Delete(k)
+				err = h.remove(k)
 				if err != nil {
 					t.Fatal(err)
 				}
-				keys.Delete(string(keyToDelete))
 			case Get:
-				keyToGet, err := tc.getKey(true, false)
-				require.NoError(err)
-				t.Logf("%d: Get: %x\n", i, keyToGet)
-				err = h.get(keyToGet)
+				k := h.getKey(true)
+				t.Logf("%d: Get: %d\n", i, k)
+				err = h.get(k)
 				if err != nil {
 					t.Fatal(err)
 				}
 			case Has:
-				keyToGet, err := tc.getKey(true, false)
-				require.NoError(err)
-				t.Logf("%d: Has: %x\n", i, keyToGet)
-				err = h.has(keyToGet)
+				k := h.getKey(true)
+				t.Logf("%d: Has: %d\n", i, k)
+				err = h.has(k)
 				if err != nil {
 					t.Fatal(err)
 				}
 			case Iterate:
-				keyA, err := tc.getKey(true, false)
-				require.NoError(err)
-				keyB, err := tc.getKey(true, false)
-				require.NoError(err)
-				ascending := tc.getByte()%2 == 0
-				var stopAfter uint8
-				if tc.getByte()%2 == 0 {
-					stopAfter = tc.getByte()
-				}
-				t.Logf("%d: Iterate: [%x,%x,%t,%d]\n", i, keyA, keyB, ascending, stopAfter)
-				_, err = h.iterate(keyA, keyB, ascending, stopAfter)
+				l := h.getKey(true)
+				r := h.getKey(true)
+				ascending := h.getBool("ascending")
+				stopAfter := h.getInt("stop after")
+				t.Logf("%d: Iterate: [%x,%x,%t,%d]\n", i, l, r, ascending, stopAfter)
+				_, err = h.iterate(l, r, ascending, stopAfter)
 				if err != nil {
 					t.Fatal(err)
 				}
 			}
-		}
-
-		s := rapid.SliceOf(rapid.String()).Draw(t, "s")
-		sort.Strings(s)
-		if !sort.StringsAreSorted(s) {
-			t.Fatalf("unsorted after sort: %v", s)
 		}
 	})
 }
