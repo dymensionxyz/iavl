@@ -8,6 +8,7 @@ import (
 	"math"
 	"slices"
 	"sort"
+	"strconv"
 	"testing"
 
 	"pgregory.net/rapid"
@@ -120,26 +121,28 @@ func TestDeepSubTreeCreateFromProofs(t *testing.T) {
 
 // Performs the Set operation on full IAVL tree first, gets the witness data generated from
 // the operation, and uses that witness data to perform the same operation on the Deep Subtree
-func (h *helper) set(key, value int) error {
+func (h *helper) set(keyI, valueI int) error {
+	key := toBz(keyI)
+	value := toBz(valueI)
 	// Set key-value pair in IAVL tree
-	_, err := tree.Set(key, value)
+	_, err := h.tree.Set(key, value)
 	if err != nil {
 		return err
 	}
-	_, _, err = tree.SaveVersion()
+	_, _, err = h.tree.SaveVersion()
 	h.NoError(err)
-	witness := tree.witnessData[len(tree.witnessData)-1]
-	dst.SetWitnessData([]WitnessData{witness})
+	witness := h.tree.witnessData[len(h.tree.witnessData)-1]
+	h.dst.SetWitnessData([]WitnessData{witness})
 
 	// Set key-value pair in DST
-	_, err = dst.Set(key, value)
+	_, err = h.dst.Set(key, value)
 	if err != nil {
 		return err
 	}
-	_, _, err = dst.SaveVersion()
+	_, _, err = h.dst.SaveVersion()
 	h.NoError(err)
 
-	areEqual, err := haveEqualRoots(dst.MutableTree, tree)
+	areEqual, err := haveEqualRoots(h.dst.MutableTree, h.tree)
 	if err != nil {
 		return err
 	}
@@ -151,34 +154,31 @@ func (h *helper) set(key, value int) error {
 
 // Performs the Remove operation on full IAVL tree first, gets the witness data generated from
 // the operation, and uses that witness data to peform the same operation on the Deep Subtree
-func (h *helper) remove(key []byte) error {
-	if key == nil {
-		return nil
-	}
-	tree, dst := h.tree, h.dst
+func (h *helper) remove(keyI int) error {
+	key := toBz(keyI)
 
 	// Set key-value pair in IAVL tree
-	_, _, err := tree.Remove(key)
+	_, _, err := h.tree.Remove(key)
 	if err != nil {
 		return err
 	}
-	_, _, err = tree.SaveVersion()
+	_, _, err = h.tree.SaveVersion()
 	h.NoError(err)
 
-	witness := tree.witnessData[len(tree.witnessData)-1]
-	dst.SetWitnessData([]WitnessData{witness})
+	witness := h.tree.witnessData[len(h.tree.witnessData)-1]
+	h.dst.SetWitnessData([]WitnessData{witness})
 
-	_, removed, err := dst.Remove(key)
+	_, removed, err := h.dst.Remove(key)
 	if err != nil {
 		return err
 	}
 	if !removed {
 		return fmt.Errorf("remove key from dst: %s", string(key))
 	}
-	_, _, err = dst.SaveVersion()
+	_, _, err = h.dst.SaveVersion()
 	h.NoError(err)
 
-	areEqual, err := haveEqualRoots(dst.MutableTree, tree)
+	areEqual, err := haveEqualRoots(h.dst.MutableTree, h.tree)
 	if err != nil {
 		return err
 	}
@@ -190,20 +190,17 @@ func (h *helper) remove(key []byte) error {
 
 // Performs the Get operation on full IAVL tree first, gets the witness data generated from
 // the operation, and uses that witness data to perform the same operation on the Deep Subtree
-func (h *helper) get(key []byte) error {
-	if key == nil {
-		return nil
-	}
-	tree, dst := h.tree, h.dst
+func (h *helper) get(keyI int) error {
+	key := toBz(keyI)
 
-	treeValue, err := tree.Get(key)
+	treeValue, err := h.tree.Get(key)
 	if err != nil {
 		return fmt.Errorf("tree get: %w", err)
 	}
-	witness := tree.witnessData[len(tree.witnessData)-1]
-	dst.SetWitnessData([]WitnessData{witness})
+	witness := h.tree.witnessData[len(h.tree.witnessData)-1]
+	h.dst.SetWitnessData([]WitnessData{witness})
 
-	dstValue, err := dst.Get(key)
+	dstValue, err := h.dst.Get(key)
 	if err != nil {
 		return fmt.Errorf("dst get: %w", err)
 	}
@@ -216,20 +213,17 @@ func (h *helper) get(key []byte) error {
 
 // Performs the Has operation on full IAVL tree first, gets the witness data generated from
 // the operation, and uses that witness data to perform the same operation on the Deep Subtree
-func (h *helper) has(key []byte) error {
-	if key == nil {
-		return nil
-	}
-	tree, dst := h.tree, h.dst
+func (h *helper) has(keyI int) error {
+	key := toBz(keyI)
 
-	hasExpect, err := tree.Has(key)
+	hasExpect, err := h.tree.Has(key)
 	if err != nil {
 		return fmt.Errorf("tree has: %w", err)
 	}
-	witness := tree.witnessData[len(tree.witnessData)-1]
-	dst.SetWitnessData([]WitnessData{witness})
+	witness := h.tree.witnessData[len(h.tree.witnessData)-1]
+	h.dst.SetWitnessData([]WitnessData{witness})
 
-	hasGot, err := dst.Has(key)
+	hasGot, err := h.dst.Has(key)
 	if err != nil {
 		return fmt.Errorf("dst has: key: %x: %w", key, err)
 	}
@@ -244,20 +238,18 @@ func (h *helper) has(key []byte) error {
 // Performs the Iterate operation  TODO:..
 // if stopAfter is positive, the iterations will be capped
 // returns the number of tree items visited
-func (h *helper) iterate(start, end []byte, ascending bool, stopAfter uint8) (nVisited int, err error) {
-	if start == nil || end == nil {
-		return
-	}
-	tree, dst := h.tree, h.dst
-
+func (h *helper) iterate(startI, endI int, ascending bool, stopAfter uint8) (nVisited int, err error) {
 	/*
 		TODO: do I need to explicitly test Domain,Valid,Next,Key,Value,Error,Close? In varying dynamic (non usual) ways?
 	*/
 
-	l := len(tree.witnessData)
+	start := toBz(startI)
+	end := toBz(endI)
+
+	l := len(h.tree.witnessData)
 
 	// Set key-value pair in IAVL tree
-	itTree, err := tree.Iterator(start, end, ascending)
+	itTree, err := h.tree.Iterator(start, end, ascending)
 	if err != nil {
 		return
 	}
@@ -296,10 +288,10 @@ func (h *helper) iterate(start, end []byte, ascending bool, stopAfter uint8) (nV
 
 	itTreeCloseErr := itTree.Close()
 
-	dst.SetWitnessData(slices.Clone(tree.witnessData[l:])) // TODO: need clone?
+	h.dst.SetWitnessData(slices.Clone(h.tree.witnessData[l:])) // TODO: need clone?
 
 	// Set key-value pair in IAVL tree
-	itDST, err := dst.Iterator(start, end, ascending)
+	itDST, err := h.dst.Iterator(start, end, ascending)
 	if err != nil {
 		return
 	}
@@ -325,7 +317,8 @@ func (h *helper) iterate(start, end []byte, ascending bool, stopAfter uint8) (nV
 			return 0, fmt.Errorf("error mismatch")
 		}
 	}
-	// h.NoError(itDST.(VerifyingIterator).err)
+
+	// h.NoError(itDST.(VerifyingIterator).err) TODO: bring back?
 
 	if int(i) != len(results) {
 		return 0, fmt.Errorf("valid cnt mismatch: expect %d: got %d", len(results), i)
@@ -369,6 +362,10 @@ func (h *helper) getKey(canBeNew bool) int {
 			TODO: I need to make the key return a sensible number,
 		 Maybe I can combine generators, or use the state machine
 	*/
+}
+
+func toBz(i int) []byte {
+	return []byte(strconv.Itoa(i))
 }
 
 func TestRapid(t *testing.T) {
