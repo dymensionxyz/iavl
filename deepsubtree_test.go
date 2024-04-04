@@ -117,9 +117,9 @@ func FuzzPropertyBased(f *testing.F) {
 	f.Fuzz(rapid.MakeFuzz(testWithRapid))
 }
 
-func testWithRapid(t *rapid.T) {
+func bootstrap(f fatalf) *helper {
 	h := helper{
-		t: t,
+		f: f,
 	}
 
 	fastStorage := false
@@ -129,6 +129,38 @@ func testWithRapid(t *rapid.T) {
 	dst := NewDeepSubTree(db.NewMemDB(), cacheSize, !fastStorage, 0)
 	h.tree = tree
 	h.dst = dst
+	return &h
+}
+
+func TestReplicate(t *testing.T) {
+	t.Run("has", func(t *testing.T) {
+		h := bootstrap(t)
+
+		require.NoError(t, h.set(0, 0))
+		require.NoError(t, h.set(-1, 0))
+		require.NoError(t, h.set(-2, 0))
+		require.NoError(t, h.set(-3, 0))
+		require.NoError(t, h.set(1, 0))
+		require.NoError(t, h.set(-4, 0))
+		require.NoError(t, h.set(2, 0))
+		require.NoError(t, h.has(0))
+	})
+	t.Run("get", func(t *testing.T) {
+		h := bootstrap(t)
+
+		require.NoError(t, h.set(0, 0))
+		require.NoError(t, h.set(-1, 0))
+		require.NoError(t, h.set(-2, 0))
+		require.NoError(t, h.set(-3, 0))
+		require.NoError(t, h.set(1, 0))
+		require.NoError(t, h.set(-4, 0))
+		require.NoError(t, h.set(2, 0))
+		require.NoError(t, h.get(0))
+	})
+}
+
+func testWithRapid(t *rapid.T) {
+	h := bootstrap(t)
 
 	keys := make(set.Set[int])
 	getGen := rapid.Make[GetCmd]()
@@ -387,27 +419,20 @@ func (h *helper) iterate(startI, endI int, ascending bool, stopAfter int) (nVisi
 	return len(results), nil
 }
 
+type fatalf interface {
+	Fatalf(format string, args ...any)
+}
+
 type helper struct {
-	t    *rapid.T
+	f    fatalf
 	tree *MutableTree
 	dst  *DeepSubTree
 }
 
 func (h *helper) NoError(err error) {
 	if err != nil {
-		h.t.Fatalf("%v", err)
+		h.f.Fatalf("%v", err)
 	}
-}
-
-type SM struct {
-	t          *rapid.T
-	h          *helper
-	keys       set.Set[int]
-	setGen     *rapid.Generator[SetCmd]
-	getGen     *rapid.Generator[GetCmd]
-	removeGen  *rapid.Generator[RemoveCmd]
-	hasGen     *rapid.Generator[HasCmd]
-	iterateGen *rapid.Generator[IterateCmd]
 }
 
 func toBz(i int) []byte {
