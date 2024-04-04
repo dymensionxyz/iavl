@@ -395,7 +395,7 @@ type helper struct {
 	dst  *DeepSubTree
 }
 
-func (h *helper) NoError(err error, msgAndArgs ...any) {
+func (h *helper) NoError(err error) {
 	if err != nil {
 		h.t.Fatalf("%v", err)
 	}
