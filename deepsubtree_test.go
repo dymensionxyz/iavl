@@ -136,6 +136,50 @@ func withRapidSM(t *rapid.T) {
 	t.Repeat(rapid.StateMachineActions(sm))
 }
 
+func (sm SM) Check(t *rapid.T) {
+	areEqual, err := haveEqualRoots(sm.h.dst.MutableTree, sm.h.tree)
+	sm.h.NoError(err)
+	if !areEqual {
+		t.Fatal("iavl and deep subtree roots are not equal")
+	}
+}
+
+func (sm SM) Get(t *rapid.T) {
+	cmd := sm.getGen.Draw(t, "get")
+	err := sm.h.get(cmd.K)
+	sm.h.NoError(err)
+}
+
+func (sm SM) Set(t *rapid.T) {
+	cmd := sm.setGen.Draw(t, "set")
+	sm.keys.Add(cmd.K)
+	err := sm.h.set(cmd.K, cmd.V)
+	sm.h.NoError(err)
+}
+
+func (sm SM) Remove(t *rapid.T) {
+	cmd := sm.removeGen.Draw(t, "remove")
+	if !sm.keys.Has(cmd.K) {
+		t.Logf("noop remove")
+		return
+	}
+	sm.keys.Delete(cmd.K)
+	err := sm.h.remove(cmd.K)
+	sm.h.NoError(err)
+}
+
+func (sm SM) Has(t *rapid.T) {
+	cmd := sm.hasGen.Draw(t, "has")
+	err := sm.h.has(cmd.K)
+	sm.h.NoError(err)
+}
+
+func (sm SM) Iterate(t *rapid.T) {
+	cmd := sm.iterateGen.Draw(t, "iterate")
+	_, err := sm.h.iterate(cmd.L, cmd.R, cmd.Ascending, cmd.StopAfter)
+	sm.h.NoError(err)
+}
+
 func TestFoo(t *testing.T) {
 	rapid.Check(t, withRapidSM)
 }
@@ -370,50 +414,6 @@ type SM struct {
 
 func toBz(i int) []byte {
 	return []byte(strconv.Itoa(i))
-}
-
-func (sm SM) Check(t *rapid.T) {
-	areEqual, err := haveEqualRoots(sm.h.dst.MutableTree, sm.h.tree)
-	sm.h.NoError(err)
-	if !areEqual {
-		t.Fatal("iavl and deep subtree roots are not equal")
-	}
-}
-
-func (sm SM) Set(t *rapid.T) {
-	cmd := sm.setGen.Draw(t, "set")
-	sm.keys.Add(cmd.K)
-	err := sm.h.set(cmd.K, cmd.V)
-	sm.h.NoError(err)
-}
-
-func (sm SM) Get(t *rapid.T) {
-	cmd := sm.getGen.Draw(t, "get")
-	err := sm.h.get(cmd.K)
-	sm.h.NoError(err)
-}
-
-func (sm SM) Remove(t *rapid.T) {
-	cmd := sm.removeGen.Draw(t, "remove")
-	if !sm.keys.Has(cmd.K) {
-		t.Logf("noop remove")
-		return
-	}
-	sm.keys.Delete(cmd.K)
-	err := sm.h.remove(cmd.K)
-	sm.h.NoError(err)
-}
-
-func (sm SM) Has(t *rapid.T) {
-	cmd := sm.hasGen.Draw(t, "has")
-	err := sm.h.has(cmd.K)
-	sm.h.NoError(err)
-}
-
-func (sm SM) Iterate(t *rapid.T) {
-	cmd := sm.iterateGen.Draw(t, "iterate")
-	_, err := sm.h.iterate(cmd.L, cmd.R, cmd.Ascending, cmd.StopAfter)
-	sm.h.NoError(err)
 }
 
 type SetCmd struct {
