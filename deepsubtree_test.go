@@ -373,6 +373,27 @@ func toBz(i int) []byte {
 	return []byte(strconv.Itoa(i))
 }
 
+type SM struct {
+	cnt *int
+}
+
+func (sm SM) Check(t *rapid.T) {
+	if 3 < *sm.cnt {
+		t.Fatal("too many ops")
+	}
+}
+
+func (sm SM) Wiz(t *rapid.T) {
+	*sm.cnt = *sm.cnt + 1
+	t.Logf("wiz!!\n")
+}
+
+func withRapidSM(t *rapid.T) {
+	x := 0
+	sm := SM{&x}
+	t.Repeat(rapid.StateMachineActions(sm))
+}
+
 func withRapid(t *rapid.T) {
 	choices := []op{
 		Set,
@@ -456,7 +477,7 @@ func withRapid(t *rapid.T) {
 }
 
 func TestFoo(t *testing.T) {
-	rapid.Check(t, withRapid)
+	rapid.Check(t, withRapidSM)
 }
 
 func FuzzFoo(f *testing.F) {
