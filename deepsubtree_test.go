@@ -108,15 +108,6 @@ func TestDeepSubTreeCreateFromProofs(t *testing.T) {
 	require.True(areEqual)
 }
 
-func TestPropertyBased(t *testing.T) {
-	rapid.Check(t, testWithRapid)
-}
-
-func FuzzPropertyBased(f *testing.F) {
-	// TODO: sanity check that it works
-	f.Fuzz(rapid.MakeFuzz(testWithRapid))
-}
-
 func bootstrap(f fatalf) *helper {
 	h := helper{
 		f: f,
@@ -135,7 +126,26 @@ func bootstrap(f fatalf) *helper {
 func TestReplicate(t *testing.T) {
 	t.Run("foo", func(t *testing.T) {
 		h := bootstrap(t)
+		_ = h
+		require.NoError(t, h.set(0, 0))
+		require.NoError(t, h.set(1, 0))
+		require.NoError(t, h.set(2, 0))
+		require.NoError(t, h.set(-1, 0))
+		require.NoError(t, h.set(3, 0))
+		require.NoError(t, h.set(10, 0))
+		require.NoError(t, h.set(4, 0))
+		_, err := h.iterate(0, 3, false, 0)
+		require.NoError(t, err)
 	})
+}
+
+func TestPropertyBased(t *testing.T) {
+	rapid.Check(t, testWithRapid)
+}
+
+func FuzzPropertyBased(f *testing.F) {
+	// TODO: sanity check that it works
+	f.Fuzz(rapid.MakeFuzz(testWithRapid))
 }
 
 func testWithRapid(t *rapid.T) {
@@ -190,11 +200,14 @@ func testWithRapid(t *rapid.T) {
 			err := h.has(cmd.K)
 			h.NoError(err)
 		},
-		//"iterate": func(t *rapid.T) {
-		//	cmd := iterateGen.Draw(t, "iterate")
-		//	_, err := h.iterate(cmd.L, cmd.R, cmd.Ascending, cmd.StopAfter)
-		//	h.NoError(err)
-		//},
+		"iterate": func(t *rapid.T) {
+			cmd := iterateGen.Draw(t, "iterate")
+			if cmd.L > cmd.R {
+				return
+			}
+			_, err := h.iterate(cmd.L, cmd.R, cmd.Ascending, cmd.StopAfter)
+			h.NoError(err)
+		},
 	})
 }
 
