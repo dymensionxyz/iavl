@@ -108,6 +108,15 @@ func TestDeepSubTreeCreateFromProofs(t *testing.T) {
 	require.True(areEqual)
 }
 
+func TestFoo(t *testing.T) {
+	rapid.Check(t, withRapidSM)
+}
+
+func FuzzFoo(f *testing.F) {
+	// TODO: sanity check that it works
+	f.Fuzz(rapid.MakeFuzz(withRapidSM))
+}
+
 func withRapidSM(t *rapid.T) {
 	h := helper{
 		t: t,
@@ -178,15 +187,6 @@ func (sm SM) Iterate(t *rapid.T) {
 	cmd := sm.iterateGen.Draw(t, "iterate")
 	_, err := sm.h.iterate(cmd.L, cmd.R, cmd.Ascending, cmd.StopAfter)
 	sm.h.NoError(err)
-}
-
-func TestFoo(t *testing.T) {
-	rapid.Check(t, withRapidSM)
-}
-
-func FuzzFoo(f *testing.F) {
-	// TODO: sanity check
-	f.Fuzz(rapid.MakeFuzz(withRapidSM))
 }
 
 // Does the Set operation on full IAVL tree first, gets the witness data generated from
