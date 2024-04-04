@@ -170,6 +170,7 @@ func testWithRapid(t *rapid.T) {
 				return
 			}
 			keys.Delete(cmd.K)
+			// TODO: remove should be useable without the key present
 			err := h.remove(cmd.K)
 			h.NoError(err)
 		},
@@ -256,7 +257,7 @@ func (h *helper) remove(keyI int) error {
 		return err
 	}
 	if !removed {
-		return fmt.Errorf("remove key from dst: %s", string(key))
+		return fmt.Errorf("remove key from dst: %d", key)
 	}
 	_, _, err = h.dst.SaveVersion()
 	h.NoError(err)
@@ -269,20 +270,20 @@ func (h *helper) remove(keyI int) error {
 func (h *helper) has(keyI int) error {
 	key := toBz(keyI)
 
-	hasExpect, err := h.tree.Has(key)
+	expect, err := h.tree.Has(key)
 	if err != nil {
 		return fmt.Errorf("tree has: %w", err)
 	}
 	witness := h.tree.witnessData[len(h.tree.witnessData)-1]
 	h.dst.SetWitnessData([]WitnessData{witness})
 
-	hasGot, err := h.dst.Has(key)
+	got, err := h.dst.Has(key)
 	if err != nil {
-		return fmt.Errorf("dst has: key: %x: %w", key, err)
+		return fmt.Errorf("dst has: key: %d: %w", keyI, err)
 	}
 
-	if hasGot != hasExpect {
-		return fmt.Errorf("has mismatch: key: %x: expect %t: got: %t", key, hasExpect, hasGot)
+	if got != expect {
+		return fmt.Errorf("has mismatch: key: %d: expect %t: got: %t", keyI, expect, got)
 	}
 
 	return nil
