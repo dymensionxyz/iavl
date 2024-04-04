@@ -373,86 +373,93 @@ func toBz(i int) []byte {
 	return []byte(strconv.Itoa(i))
 }
 
-func TestRapid(t *testing.T) {
-	rapid.Check(t, func(t *rapid.T) {
-		choices := []op{
-			Set,
-			Get,
-			Remove,
-			Has,
-			Iterate,
-		}
-		h := helper{
-			t:        t,
-			drawOp:   rapid.SampledFrom(choices),
-			drawInt:  rapid.IntRange(0, 100),
-			drawBool: rapid.Bool(),
-			keys:     make(set.Set[int]),
-		}
+func withRapid(t *rapid.T) {
+	choices := []op{
+		Set,
+		Get,
+		Remove,
+		Has,
+		Iterate,
+	}
+	h := helper{
+		t:        t,
+		drawOp:   rapid.SampledFrom(choices),
+		drawInt:  rapid.IntRange(0, 100),
+		drawBool: rapid.Bool(),
+		keys:     make(set.Set[int]),
+	}
 
-		/*
-			rollapp to hub, hub to rollapp
-			when transfer
-		*/
+	/*
+		rollapp to hub, hub to rollapp
+		when transfer
+	*/
 
-		fastStorage := false
-		t.Logf("fast storage: %t\n", fastStorage)
-		tree, err := NewMutableTreeWithOpts(db.NewMemDB(), cacheSize, nil, !fastStorage)
-		h.NoError(err)
-		tree.SetTracingEnabled(true)
-		dst := NewDeepSubTree(db.NewMemDB(), cacheSize, !fastStorage, 0)
-		h.tree = tree
-		h.dst = dst
+	fastStorage := false
+	t.Logf("fast storage: %t\n", fastStorage)
+	tree, err := NewMutableTreeWithOpts(db.NewMemDB(), cacheSize, nil, !fastStorage)
+	h.NoError(err)
+	tree.SetTracingEnabled(true)
+	dst := NewDeepSubTree(db.NewMemDB(), cacheSize, !fastStorage, 0)
+	h.tree = tree
+	h.dst = dst
 
-		numOps := h.getInt("num ops")
-		for i := 0; i < numOps; i++ {
-			switch h.getOp() {
-			case Set:
-				k := h.getKey(true)
-				v := h.getInt("value")
-				h.keys.Add(k)
-				t.Logf("%d: Add: %d\n", i, k)
-				err = h.set(k, v)
-				if err != nil {
-					t.Fatal(err)
-				}
-			case Remove:
-				k := h.getKey(false)
-				if k == -1 {
-					// TODO: fix
-					continue
-				}
-				t.Logf("%d: Remove: %d\n", i, k)
-				h.keys.Delete(k)
-				err = h.remove(k)
-				if err != nil {
-					t.Fatal(err)
-				}
-			case Get:
-				k := h.getKey(true)
-				t.Logf("%d: Get: %d\n", i, k)
-				err = h.get(k)
-				if err != nil {
-					t.Fatal(err)
-				}
-			case Has:
-				k := h.getKey(true)
-				t.Logf("%d: Has: %d\n", i, k)
-				err = h.has(k)
-				if err != nil {
-					t.Fatal(err)
-				}
-			case Iterate:
-				l := h.getKey(true)
-				r := h.getKey(true)
-				ascending := h.getBool("ascending")
-				stopAfter := h.getInt("stop after")
-				t.Logf("%d: Iterate: [l=%d,r=%d,ascending=%t,stopAfter=%d]\n", i, l, r, ascending, stopAfter)
-				_, err = h.iterate(l, r, ascending, stopAfter)
-				if err != nil {
-					t.Fatal(err)
-				}
+	numOps := h.getInt("num ops")
+	for i := 0; i < numOps; i++ {
+		switch h.getOp() {
+		case Set:
+			k := h.getKey(true)
+			v := h.getInt("value")
+			h.keys.Add(k)
+			t.Logf("%d: Add: %d\n", i, k)
+			err = h.set(k, v)
+			if err != nil {
+				t.Fatal(err)
+			}
+		case Remove:
+			k := h.getKey(false)
+			if k == -1 {
+				// TODO: fix
+				continue
+			}
+			t.Logf("%d: Remove: %d\n", i, k)
+			h.keys.Delete(k)
+			err = h.remove(k)
+			if err != nil {
+				t.Fatal(err)
+			}
+		case Get:
+			k := h.getKey(true)
+			t.Logf("%d: Get: %d\n", i, k)
+			err = h.get(k)
+			if err != nil {
+				t.Fatal(err)
+			}
+		case Has:
+			k := h.getKey(true)
+			t.Logf("%d: Has: %d\n", i, k)
+			err = h.has(k)
+			if err != nil {
+				t.Fatal(err)
+			}
+		case Iterate:
+			l := h.getKey(true)
+			r := h.getKey(true)
+			ascending := h.getBool("ascending")
+			stopAfter := h.getInt("stop after")
+			t.Logf("%d: Iterate: [l=%d,r=%d,ascending=%t,stopAfter=%d]\n", i, l, r, ascending, stopAfter)
+			_, err = h.iterate(l, r, ascending, stopAfter)
+			if err != nil {
+				t.Fatal(err)
 			}
 		}
-	})
+	}
+}
+
+func TestFoo(t *testing.T) {
+	rapid.Check(t, withRapid)
+}
+
+func FuzzFoo(f *testing.F) {
+	// TODO: sanity check
+	f.Fuzz(rapid.MakeFuzz(withRapid))
 }
