@@ -27,20 +27,11 @@ const (
 	Get
 	Has
 	Iterate
-	Noop
 )
 
 const (
 	cacheSize = math.MaxUint16
 )
-
-// TODO: maybe need to impl tm.DB in full? TODO(danwt): remove this
-type mustImpl interface {
-	Has(key []byte) (bool, error)
-	Iterator(start, end []byte, ascending bool) (db.Iterator, error)
-}
-
-var _ mustImpl = (*DeepSubTree)(nil)
 
 // Returns whether given trees have equal hashes
 func haveEqualRoots(tree1 *MutableTree, tree2 *MutableTree) (bool, error) {
@@ -127,35 +118,19 @@ func TestDeepSubTreeCreateFromProofs(t *testing.T) {
 	require.True(areEqual)
 }
 
-type testContext struct {
-	r        *bytes.Reader
-	tree     *MutableTree
-	dst      *DeepSubTree
-	keys     set.Set[string]
-	require  *require.Assertions
-	byteReqs int
-}
-
-func (tc *testContext) getByte() byte {
-	bz, err := tc.r.ReadByte()
-	tc.byteReqs++
-	tc.require.NoError(err, "byte request %d", tc.byteReqs)
-	return bz
-}
-
 // If genRandom, returns a random NEW key, half of the time. If addsNewKey is true, adds the key to the set of keys.
 // Otherwise, returns a randomly picked existing key
 // If we're not creating keys, and none already exist, returns the blank key
-func (tc *testContext) getKey(genRandom bool, addsNewKey bool) (key []byte, err error) {
-	tree, r, keys := tc.tree, tc.r, tc.keys
-	if genRandom && tc.getByte() < math.MaxUint8/2 {
+func (h *helper) getKeyOld(genRandom bool, addsNewKey bool) (key []byte, err error) {
+	tree, r, keys := h.tree, h.r, h.keys
+	if genRandom && h.getByte() < math.MaxUint8/2 {
 
 		// generate a key
 		k := make([]byte, 4)
 		_, err := r.Read(k)
-		tc.require.NoError(err)
+		h.NoError(err)
 
-		n := tc.getByte() % 16
+		n := h.getByte() % 16
 		binary.BigEndian.PutUint32(k, uint32(n))
 
 		/////////
@@ -175,17 +150,17 @@ func (tc *testContext) getKey(genRandom bool, addsNewKey bool) (key []byte, err 
 		return nil, nil
 	}
 	keyList := keys.Values()
-	kString := keyList[int(tc.getByte())%len(keys)]
+	kString := keyList[int(h.getByte())%len(keys)]
 	return []byte(kString), nil
 }
 
 // Performs the Set operation on full IAVL tree first, gets the witness data generated from
 // the operation, and uses that witness data to perform the same operation on the Deep Subtree
-func (tc *testContext) set(key []byte, value []byte) error {
+func (h *helper) set(key []byte, value []byte) error {
 	if key == nil {
 		return nil
 	}
-	tree, dst := tc.tree, tc.dst
+	tree, dst := h.tree, h.dst
 
 	// Set key-value pair in IAVL tree
 	_, err := tree.Set(key, value)
@@ -193,7 +168,7 @@ func (tc *testContext) set(key []byte, value []byte) error {
 		return err
 	}
 	_, _, err = tree.SaveVersion()
-	tc.require.NoError(err)
+	h.NoError(err)
 	witness := tree.witnessData[len(tree.witnessData)-1]
 	dst.SetWitnessData([]WitnessData{witness})
 
@@ -203,7 +178,7 @@ func (tc *testContext) set(key []byte, value []byte) error {
 		return err
 	}
 	_, _, err = dst.SaveVersion()
-	tc.require.NoError(err)
+	h.NoError(err)
 
 	areEqual, err := haveEqualRoots(dst.MutableTree, tree)
 	if err != nil {
@@ -217,11 +192,11 @@ func (tc *testContext) set(key []byte, value []byte) error {
 
 // Performs the Remove operation on full IAVL tree first, gets the witness data generated from
 // the operation, and uses that witness data to peform the same operation on the Deep Subtree
-func (tc *testContext) remove(key []byte) error {
+func (h *helper) remove(key []byte) error {
 	if key == nil {
 		return nil
 	}
-	tree, dst := tc.tree, tc.dst
+	tree, dst := h.tree, h.dst
 
 	// Set key-value pair in IAVL tree
 	_, _, err := tree.Remove(key)
@@ -229,7 +204,7 @@ func (tc *testContext) remove(key []byte) error {
 		return err
 	}
 	_, _, err = tree.SaveVersion()
-	tc.require.NoError(err)
+	h.NoError(err)
 
 	witness := tree.witnessData[len(tree.witnessData)-1]
 	dst.SetWitnessData([]WitnessData{witness})
@@ -242,7 +217,7 @@ func (tc *testContext) remove(key []byte) error {
 		return fmt.Errorf("remove key from dst: %s", string(key))
 	}
 	_, _, err = dst.SaveVersion()
-	tc.require.NoError(err)
+	h.NoError(err)
 
 	areEqual, err := haveEqualRoots(dst.MutableTree, tree)
 	if err != nil {
@@ -256,11 +231,11 @@ func (tc *testContext) remove(key []byte) error {
 
 // Performs the Get operation on full IAVL tree first, gets the witness data generated from
 // the operation, and uses that witness data to perform the same operation on the Deep Subtree
-func (tc *testContext) get(key []byte) error {
+func (h *helper) get(key []byte) error {
 	if key == nil {
 		return nil
 	}
-	tree, dst := tc.tree, tc.dst
+	tree, dst := h.tree, h.dst
 
 	treeValue, err := tree.Get(key)
 	if err != nil {
@@ -282,11 +257,11 @@ func (tc *testContext) get(key []byte) error {
 
 // Performs the Has operation on full IAVL tree first, gets the witness data generated from
 // the operation, and uses that witness data to perform the same operation on the Deep Subtree
-func (tc *testContext) has(key []byte) error {
+func (h *helper) has(key []byte) error {
 	if key == nil {
 		return nil
 	}
-	tree, dst := tc.tree, tc.dst
+	tree, dst := h.tree, h.dst
 
 	hasExpect, err := tree.Has(key)
 	if err != nil {
@@ -310,11 +285,11 @@ func (tc *testContext) has(key []byte) error {
 // Performs the Iterate operation  TODO:..
 // if stopAfter is positive, the iterations will be capped
 // returns the number of tree items visited
-func (tc *testContext) iterate(start, end []byte, ascending bool, stopAfter uint8) (nVisited int, err error) {
+func (h *helper) iterate(start, end []byte, ascending bool, stopAfter uint8) (nVisited int, err error) {
 	if start == nil || end == nil {
 		return
 	}
-	tree, dst := tc.tree, tc.dst
+	tree, dst := h.tree, h.dst
 
 	/*
 		TODO: do I need to explicitly test Domain,Valid,Next,Key,Value,Error,Close? In varying dynamic (non usual) ways?
@@ -358,7 +333,7 @@ func (tc *testContext) iterate(start, end []byte, ascending bool, stopAfter uint
 		})
 	}
 
-	tc.require.NoError(itTree.(TracingIterator).err)
+	h.NoError(itTree.(TracingIterator).err)
 
 	itTreeCloseErr := itTree.Close()
 
@@ -391,7 +366,7 @@ func (tc *testContext) iterate(start, end []byte, ascending bool, stopAfter uint
 			return 0, fmt.Errorf("error mismatch")
 		}
 	}
-	// tc.require.NoError(itDST.(VerifyingIterator).err)
+	// h.NoError(itDST.(VerifyingIterator).err)
 
 	if int(i) != len(results) {
 		return 0, fmt.Errorf("valid cnt mismatch: expect %d: got %d", len(results), i)
@@ -406,26 +381,119 @@ func (tc *testContext) iterate(start, end []byte, ascending bool, stopAfter uint
 	return len(results), nil
 }
 
+type helper struct {
+	t       *rapid.T
+	tree    *MutableTree
+	dst     *DeepSubTree
+	keys    set.Set[string]
+	drawOp  *rapid.Generator[op]
+	drawInt *rapid.Generator[int8]
+}
+
+func (h *helper) NoError(err error, msgAndArgs ...any) {
+	if err != nil {
+		h.t.Fatalf("%v", err)
+	}
+}
+
+func (h *helper) getOp() op {
+	return h.drawOp.Draw(h.t, "op")
+}
+
+func (h *helper) getInt8(label string) int8 {
+	return h.drawInt.Draw(h.t, label)
+}
+
+func (h *helper) getKey(canBeNew bool) int8 {
+	i := h.getInt8("key")
+	/*
+			TODO: I need to make the key return a sensible number,
+		 Maybe I can combine generators, or use the state machine
+	*/
+}
+
 func TestRapid(t *testing.T) {
 	rapid.Check(t, func(t *rapid.T) {
-		choices := []int{
-			int(Set),
+		choices := []op{
+			Set,
 			// int(Get),
 			// int(Has),
 			// int(Remove),
-			int(Iterate),
+			Iterate,
 		}
 		getOp := rapid.SampledFrom(choices)
 		getInt := rapid.Int8Min(0)
+		h := helper{
+			t:       t,
+			drawOp:  getOp,
+			drawInt: getInt,
+			keys:    make(set.Set[string]),
+		}
 
 		fastStorage := false
 		t.Logf("fast storage: %t\n", fastStorage)
 		tree, err := NewMutableTreeWithOpts(db.NewMemDB(), cacheSize, nil, !fastStorage)
-		t.
-			require.NoError(err)
+		h.NoError(err)
 		tree.SetTracingEnabled(true)
 		dst := NewDeepSubTree(db.NewMemDB(), cacheSize, !fastStorage, 0)
-		keys := make(set.Set[string])
+		h.tree = tree
+		h.dst = dst
+
+		numOps := h.getInt8("num ops")
+		for i := int8(0); i < numOps; i++ {
+			switch h.getOp() {
+			case Set:
+				keyToAdd, err := tc.getKey(true, true)
+				require.NoError(err)
+				t.Logf("%d: Add: %x\n", i, keyToAdd)
+				value := make([]byte, 32)
+				binary.BigEndian.PutUint64(value, uint64(i))
+				err = h.set(keyToAdd, value)
+				if err != nil {
+					t.Fatal(err)
+				}
+			case Remove:
+				keyToDelete, err := tc.getKey(false, false)
+				require.NoError(err)
+				t.Logf("%d: Remove: %x\n", i, keyToDelete)
+				err = h.remove(keyToDelete)
+				if err != nil {
+					t.Fatal(err)
+				}
+				keys.Delete(string(keyToDelete))
+			case Get:
+				keyToGet, err := tc.getKey(true, false)
+				require.NoError(err)
+				t.Logf("%d: Get: %x\n", i, keyToGet)
+				err = h.get(keyToGet)
+				if err != nil {
+					t.Fatal(err)
+				}
+			case Has:
+				keyToGet, err := tc.getKey(true, false)
+				require.NoError(err)
+				t.Logf("%d: Has: %x\n", i, keyToGet)
+				err = h.has(keyToGet)
+				if err != nil {
+					t.Fatal(err)
+				}
+			case Iterate:
+				keyA, err := tc.getKey(true, false)
+				require.NoError(err)
+				keyB, err := tc.getKey(true, false)
+				require.NoError(err)
+				ascending := tc.getByte()%2 == 0
+				var stopAfter uint8
+				if tc.getByte()%2 == 0 {
+					stopAfter = tc.getByte()
+				}
+				t.Logf("%d: Iterate: [%x,%x,%t,%d]\n", i, keyA, keyB, ascending, stopAfter)
+				_, err = h.iterate(keyA, keyB, ascending, stopAfter)
+				if err != nil {
+					t.Fatal(err)
+				}
+			}
+		}
 
 		s := rapid.SliceOf(rapid.String()).Draw(t, "s")
 		sort.Strings(s)
@@ -446,7 +514,7 @@ func FuzzAllOps(f *testing.F) {
 		}
 
 		r := bytes.NewReader(input)
-		tc := testContext{
+		tc := helper{
 			r:       r,
 			require: require,
 		}
