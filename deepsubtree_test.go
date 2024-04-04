@@ -118,50 +118,9 @@ func TestDeepSubTreeCreateFromProofs(t *testing.T) {
 	require.True(areEqual)
 }
 
-// If genRandom, returns a random NEW key, half of the time. If addsNewKey is true, adds the key to the set of keys.
-// Otherwise, returns a randomly picked existing key
-// If we're not creating keys, and none already exist, returns the blank key
-func (h *helper) getKeyOld(genRandom bool, addsNewKey bool) (key []byte, err error) {
-	tree, r, keys := h.tree, h.r, h.keys
-	if genRandom && h.getByte() < math.MaxUint8/2 {
-
-		// generate a key
-		k := make([]byte, 4)
-		_, err := r.Read(k)
-		h.NoError(err)
-
-		n := h.getByte() % 16
-		binary.BigEndian.PutUint32(k, uint32(n))
-
-		/////////
-		// TODO: why is this block here? can use has instead?
-		_, err = tree.Get(k)
-		if err != nil {
-			return nil, err
-		}
-		////////
-
-		if addsNewKey {
-			keys.Add(string(k))
-		}
-		return k, nil
-	}
-	if keys.Len() == 0 {
-		return nil, nil
-	}
-	keyList := keys.Values()
-	kString := keyList[int(h.getByte())%len(keys)]
-	return []byte(kString), nil
-}
-
 // Performs the Set operation on full IAVL tree first, gets the witness data generated from
 // the operation, and uses that witness data to perform the same operation on the Deep Subtree
-func (h *helper) set(key []byte, value []byte) error {
-	if key == nil {
-		return nil
-	}
-	tree, dst := h.tree, h.dst
-
+func (h *helper) set(key, value int) error {
 	// Set key-value pair in IAVL tree
 	_, err := tree.Set(key, value)
 	if err != nil {
@@ -387,7 +346,7 @@ type helper struct {
 	dst     *DeepSubTree
 	keys    set.Set[string]
 	drawOp  *rapid.Generator[op]
-	drawInt *rapid.Generator[int8]
+	drawInt *rapid.Generator[int]
 }
 
 func (h *helper) NoError(err error, msgAndArgs ...any) {
@@ -400,12 +359,12 @@ func (h *helper) getOp() op {
 	return h.drawOp.Draw(h.t, "op")
 }
 
-func (h *helper) getInt8(label string) int8 {
+func (h *helper) getInt(label string) int {
 	return h.drawInt.Draw(h.t, label)
 }
 
-func (h *helper) getKey(canBeNew bool) int8 {
-	i := h.getInt8("key")
+func (h *helper) getKey(canBeNew bool) int {
+	i := h.getInt("key")
 	/*
 			TODO: I need to make the key return a sensible number,
 		 Maybe I can combine generators, or use the state machine
@@ -422,13 +381,18 @@ func TestRapid(t *testing.T) {
 			Iterate,
 		}
 		getOp := rapid.SampledFrom(choices)
-		getInt := rapid.Int8Min(0)
+		getInt := rapid.IntRange(0, 100)
 		h := helper{
 			t:       t,
 			drawOp:  getOp,
 			drawInt: getInt,
 			keys:    make(set.Set[string]),
 		}
+
+		/*
+			rollapp to hub, hub to rollapp
+			when transfer
+		*/
 
 		fastStorage := false
 		t.Logf("fast storage: %t\n", fastStorage)
@@ -439,8 +403,8 @@ func TestRapid(t *testing.T) {
 		h.tree = tree
 		h.dst = dst
 
-		numOps := h.getInt8("num ops")
-		for i := int8(0); i < numOps; i++ {
+		numOps := h.getInt("num ops")
+		for i := 0; i < numOps; i++ {
 			switch h.getOp() {
 			case Set:
 				keyToAdd, err := tc.getKey(true, true)
@@ -495,119 +459,6 @@ func TestRapid(t *testing.T) {
 			}
 		}
 
-		s := rapid.SliceOf(rapid.String()).Draw(t, "s")
-		sort.Strings(s)
-		if !sort.StringsAreSorted(s) {
-			t.Fatalf("unsorted after sort: %v", s)
-		}
-	})
-}
-
-// Fuzz tests different combinations of Get, Remove, Set, Has, Iterate operations generated in
-// a random order with keys related to operations chosen randomly
-// go test -run=FuzzAllOps -count=1 --fuzz=Fuzz .
-func FuzzAllOps(f *testing.F) {
-	f.Fuzz(func(t *testing.T, input []byte) {
-		require := require.New(t)
-		if len(input) < 200 {
-			return
-		}
-
-		r := bytes.NewReader(input)
-		tc := helper{
-			r:       r,
-			require: require,
-		}
-		// It should always be false?
-		// fastStorage := tc.getByte()%2 == 0
-		fastStorage := false
-		t.Logf("fast storage: %t\n", fastStorage)
-
-		tree, err := NewMutableTreeWithOpts(db.NewMemDB(), cacheSize, nil, !fastStorage)
-		require.NoError(err)
-		tree.SetTracingEnabled(true)
-		dst := NewDeepSubTree(db.NewMemDB(), cacheSize, !fastStorage, 0)
-		keys := make(set.Set[string])
-		tc.tree = tree
-		tc.dst = dst
-		tc.keys = keys
-
-		bytesNeededWorstCase := 20 // we might need up to this many, per operation
-		for i := 0; bytesNeededWorstCase < r.Len(); i++ {
-			tc.byteReqs = 0
-			choices := []op{
-				Set,
-				// Get,
-				// Has,
-				// Remove,
-				Iterate,
-			}
-			op := choices[int(uint8(tc.getByte()))%len(choices)]
-
-			require.NoError(err)
-			switch op {
-			// TODO: this only tests keys which are known to be present.. is that right?
-			case Set:
-				keyToAdd, err := tc.getKey(true, true)
-				require.NoError(err)
-				t.Logf("%d: Add: %x\n", i, keyToAdd)
-				value := make([]byte, 32)
-				binary.BigEndian.PutUint64(value, uint64(i))
-				err = tc.set(keyToAdd, value)
-				if err != nil {
-					t.Fatal(err)
-				}
-			case Remove:
-				keyToDelete, err := tc.getKey(false, false)
-				require.NoError(err)
-				t.Logf("%d: Remove: %x\n", i, keyToDelete)
-				err = tc.remove(keyToDelete)
-				if err != nil {
-					t.Fatal(err)
-				}
-				keys.Delete(string(keyToDelete))
-			case Get:
-				keyToGet, err := tc.getKey(true, false)
-				require.NoError(err)
-				t.Logf("%d: Get: %x\n", i, keyToGet)
-				err = tc.get(keyToGet)
-				if err != nil {
-					t.Fatal(err)
-				}
-			case Has:
-				keyToGet, err := tc.getKey(true, false)
-				require.NoError(err)
-				t.Logf("%d: Has: %x\n", i, keyToGet)
-				err = tc.has(keyToGet)
-				if err != nil {
-					t.Fatal(err)
-				}
-			case Iterate:
-				keyA, err := tc.getKey(true, false)
-				require.NoError(err)
-				keyB, err := tc.getKey(true, false)
-				require.NoError(err)
-				ascending := tc.getByte()%2 == 0
-				var stopAfter uint8
-				if tc.getByte()%2 == 0 {
-					stopAfter = tc.getByte()
-				}
-				t.Logf("%d: Iterate: [%x,%x,%t,%d]\n", i, keyA, keyB, ascending, stopAfter)
-				_, err = tc.iterate(keyA, keyB, ascending, stopAfter)
-				if err != nil {
-					t.Fatal(err)
-				}
-
-			default:
-				panic("unhandled default case")
-			}
-		}
-		t.Log("Done")
-	})
-}
-
-func TestSortStrings(t *testing.T) {
-	rapid.Check(t, func(t *rapid.T) {
 		s := rapid.SliceOf(rapid.String()).Draw(t, "s")
 		sort.Strings(s)
 		if !sort.StringsAreSorted(s) {
