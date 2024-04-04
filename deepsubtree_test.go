@@ -9,9 +9,10 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/chrispappas/golang-generics-set/set"
+
 	"pgregory.net/rapid"
 
-	"github.com/chrispappas/golang-generics-set/set"
 	ics23 "github.com/confio/ics23/go"
 
 	"github.com/stretchr/testify/require"
@@ -332,13 +333,9 @@ func (h *helper) iterate(startI, endI int, ascending bool, stopAfter int) (nVisi
 }
 
 type helper struct {
-	t        *rapid.T
-	tree     *MutableTree
-	dst      *DeepSubTree
-	keys     set.Set[int]
-	drawOp   *rapid.Generator[op]
-	drawInt  *rapid.Generator[int]
-	drawBool *rapid.Generator[bool]
+	t    *rapid.T
+	tree *MutableTree
+	dst  *DeepSubTree
 }
 
 func (h *helper) NoError(err error, msgAndArgs ...any) {
@@ -347,76 +344,99 @@ func (h *helper) NoError(err error, msgAndArgs ...any) {
 	}
 }
 
-func (h *helper) getOp() op {
-	return h.drawOp.Draw(h.t, "op")
-}
-
-func (h *helper) getInt(label string) int {
-	return h.drawInt.Draw(h.t, label)
-}
-
-func (h *helper) getBool(label string) bool {
-	return h.drawBool.Draw(h.t, label)
-}
-
-func (h *helper) getKey(canBeNew bool) int {
-	if canBeNew {
-		return h.getInt("any key")
-	}
-	if h.keys.Len() == 0 {
-		return -1
-	}
-	return rapid.SampledFrom(h.keys.Values()).Draw(h.t, "existing key") // TODO: can you just do this on the fly?
-}
-
 func toBz(i int) []byte {
 	return []byte(strconv.Itoa(i))
 }
 
 type SM struct {
-	cnt *int
+	t          *rapid.T
+	h          *helper
+	keys       set.Set[int]
+	setGen     *rapid.Generator[SetCmd]
+	getGen     *rapid.Generator[GetCmd]
+	removeGen  *rapid.Generator[RemoveCmd]
+	hasGen     *rapid.Generator[HasCmd]
+	iterateGen *rapid.Generator[IterateCmd]
 }
 
 func (sm SM) Check(t *rapid.T) {
-	if 3 < *sm.cnt {
-		t.Fatal("too many ops")
+	areEqual, err := haveEqualRoots(sm.h.dst.MutableTree, sm.h.tree)
+	sm.NoError(err)
+	if !areEqual {
+		t.Fatal("iavl and deep subtree roots are not equal")
 	}
 }
 
-func (sm SM) Wiz(t *rapid.T) {
-	*sm.cnt = *sm.cnt + 1
-	t.Logf("wiz!!\n")
+type SetCmd struct {
+	K, V int
+}
+
+type GetCmd struct {
+	K int
+}
+
+type RemoveCmd struct {
+	K int
+}
+
+type HasCmd struct {
+	K int
+}
+
+type IterateCmd struct {
+	L, R      int
+	Ascending bool
+	StopAfter int
+}
+
+func (sm SM) Set(t *rapid.T) {
+	cmd := sm.setGen.Draw(t, "set")
+	sm.keys.Add(cmd.K)
+	err := sm.h.set(cmd.K, cmd.V)
+	sm.NoError(err)
+}
+
+func (sm SM) Get(t *rapid.T) {
+	cmd := sm.getGen.Draw(t, "get")
+	err := sm.h.get(cmd.K)
+	sm.NoError(err)
+}
+
+func (sm SM) Remove(t *rapid.T) {
+	cmd := sm.removeGen.Draw(t, "remove")
+	if !sm.keys.Has(cmd.K) {
+		t.Logf("noop remove")
+		return
+	}
+	sm.keys.Delete(cmd.K)
+	err := sm.h.remove(cmd.K)
+	sm.NoError(err)
+}
+
+func (sm SM) Has(t *rapid.T) {
+	cmd := sm.hasGen.Draw(t, "has")
+	err := sm.h.has(cmd.K)
+	sm.NoError(err)
+}
+
+func (sm SM) Iterate(t *rapid.T) {
+	cmd := sm.iterateGen.Draw(t, "iterate")
+	_, err := sm.h.iterate(cmd.L, cmd.R, cmd.Ascending, cmd.StopAfter)
+	sm.NoError(err)
+}
+
+func (sm SM) NoError(err error, msgAndArgs ...any) {
+	if err != nil {
+		sm.t.Fatalf("%v", err)
+	}
 }
 
 func withRapidSM(t *rapid.T) {
-	x := 0
-	sm := SM{&x}
-	t.Repeat(rapid.StateMachineActions(sm))
-}
-
-func withRapid(t *rapid.T) {
-	choices := []op{
-		Set,
-		Get,
-		Remove,
-		Has,
-		Iterate,
-	}
 	h := helper{
-		t:        t,
-		drawOp:   rapid.SampledFrom(choices),
-		drawInt:  rapid.IntRange(0, 100),
-		drawBool: rapid.Bool(),
-		keys:     make(set.Set[int]),
+		t: t,
 	}
-
-	/*
-		rollapp to hub, hub to rollapp
-		when transfer
-	*/
 
 	fastStorage := false
-	t.Logf("fast storage: %t\n", fastStorage)
 	tree, err := NewMutableTreeWithOpts(db.NewMemDB(), cacheSize, nil, !fastStorage)
 	h.NoError(err)
 	tree.SetTracingEnabled(true)
@@ -424,56 +444,19 @@ func withRapid(t *rapid.T) {
 	h.tree = tree
 	h.dst = dst
 
-	numOps := h.getInt("num ops")
-	for i := 0; i < numOps; i++ {
-		switch h.getOp() {
-		case Set:
-			k := h.getKey(true)
-			v := h.getInt("value")
-			h.keys.Add(k)
-			t.Logf("%d: Add: %d\n", i, k)
-			err = h.set(k, v)
-			if err != nil {
-				t.Fatal(err)
-			}
-		case Remove:
-			k := h.getKey(false)
-			if k == -1 {
-				// TODO: fix
-				continue
-			}
-			t.Logf("%d: Remove: %d\n", i, k)
-			h.keys.Delete(k)
-			err = h.remove(k)
-			if err != nil {
-				t.Fatal(err)
-			}
-		case Get:
-			k := h.getKey(true)
-			t.Logf("%d: Get: %d\n", i, k)
-			err = h.get(k)
-			if err != nil {
-				t.Fatal(err)
-			}
-		case Has:
-			k := h.getKey(true)
-			t.Logf("%d: Has: %d\n", i, k)
-			err = h.has(k)
-			if err != nil {
-				t.Fatal(err)
-			}
-		case Iterate:
-			l := h.getKey(true)
-			r := h.getKey(true)
-			ascending := h.getBool("ascending")
-			stopAfter := h.getInt("stop after")
-			t.Logf("%d: Iterate: [l=%d,r=%d,ascending=%t,stopAfter=%d]\n", i, l, r, ascending, stopAfter)
-			_, err = h.iterate(l, r, ascending, stopAfter)
-			if err != nil {
-				t.Fatal(err)
-			}
-		}
+	sm := SM{
+		t:    t,
+		h:    &h,
+		keys: make(set.Set[int]),
 	}
+
+	sm.getGen = rapid.Make[GetCmd]()
+	sm.setGen = rapid.Make[SetCmd]()
+	sm.removeGen = rapid.Make[RemoveCmd]()
+	sm.hasGen = rapid.Make[HasCmd]()
+	sm.iterateGen = rapid.Make[IterateCmd]()
+
+	t.Repeat(rapid.StateMachineActions(sm))
 }
 
 func TestFoo(t *testing.T) {
@@ -482,5 +465,5 @@ func TestFoo(t *testing.T) {
 
 func FuzzFoo(f *testing.F) {
 	// TODO: sanity check
-	f.Fuzz(rapid.MakeFuzz(withRapid))
+	f.Fuzz(rapid.MakeFuzz(withRapidSM))
 }
