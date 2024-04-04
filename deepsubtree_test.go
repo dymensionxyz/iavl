@@ -679,6 +679,35 @@ func (tc *testContext) iterate(start, end []byte, ascending bool, stopAfter uint
 	return len(results), nil
 }
 
+func TestRapid(t *testing.T) {
+	rapid.Check(t, func(t *rapid.T) {
+		choices := []int{
+			int(Set),
+			// int(Get),
+			// int(Has),
+			// int(Remove),
+			int(Iterate),
+		}
+		getOp := rapid.SampledFrom(choices)
+		getInt := rapid.Int8Min(0)
+
+		fastStorage := false
+		t.Logf("fast storage: %t\n", fastStorage)
+		tree, err := NewMutableTreeWithOpts(db.NewMemDB(), cacheSize, nil, !fastStorage)
+		t.
+			require.NoError(err)
+		tree.SetTracingEnabled(true)
+		dst := NewDeepSubTree(db.NewMemDB(), cacheSize, !fastStorage, 0)
+		keys := make(set.Set[string])
+
+		s := rapid.SliceOf(rapid.String()).Draw(t, "s")
+		sort.Strings(s)
+		if !sort.StringsAreSorted(s) {
+			t.Fatalf("unsorted after sort: %v", s)
+		}
+	})
+}
+
 // Fuzz tests different combinations of Get, Remove, Set, Has, Iterate operations generated in
 // a random order with keys related to operations chosen randomly
 // go test -run=FuzzAllOps -count=1 --fuzz=Fuzz .
@@ -779,27 +808,6 @@ func FuzzAllOps(f *testing.F) {
 			}
 		}
 		t.Log("Done")
-	})
-}
-
-func TestRapid(t *testing.T) {
-	rapid.Check(t, func(t *rapid.T) {
-		choices := []int{
-			int(Set),
-			// int(Get),
-			// int(Has),
-			// int(Remove),
-			int(Iterate),
-		}
-		getOp := rapid.SampledFrom(choices)
-		getInt := rapid.Int8Min(0)
-		keys :=
-
-		s := rapid.SliceOf(rapid.String()).Draw(t, "s")
-		sort.Strings(s)
-		if !sort.StringsAreSorted(s) {
-			t.Fatalf("unsorted after sort: %v", s)
-		}
 	})
 }
 
