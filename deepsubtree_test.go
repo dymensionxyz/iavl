@@ -174,43 +174,43 @@ func testWithRapid(t *rapid.T) {
 	_ = iterateGen
 
 	t.Repeat(map[string]func(*rapid.T){
-		//"": func(t *rapid.T) { // Check
-		//	areEqual, err := haveEqualRoots(h.dst.MutableTree, h.tree)
-		//	h.NoError(err)
-		//	if !areEqual {
-		//		t.Fatal("tree and dst roots are not equal", err)
-		//	}
-		//},
-		//"get": func(t *rapid.T) {
-		//	err := h.get(key.Draw(t, "k"))
-		//	h.NoError(err)
-		//},
+		"": func(t *rapid.T) { // Check
+			areEqual, err := haveEqualRoots(h.dst.MutableTree, h.tree)
+			h.NoError(err)
+			if !areEqual {
+				t.Fatal("tree and dst roots are not equal", err)
+			}
+		},
+		"get": func(t *rapid.T) {
+			err := h.get(key.Draw(t, "k"))
+			h.NoError(err)
+		},
 		"set": func(t *rapid.T) {
 			kv := key.Draw(t, "kv")
 			keys.Add(kv)
 			err := h.set(kv, kv)
 			h.NoError(err)
 		},
-		//"remove": func(t *rapid.T) {
-		//	k := key.Draw(t, "k")
-		//	if !keys.Has(k) {
-		//		t.Logf("noop remove")
-		//		return
-		//	}
-		//	keys.Delete(k)
-		//	// TODO: remove should be useable without the key present
-		//	err := h.remove(k)
-		//	h.NoError(err)
-		//},
-		//"has": func(t *rapid.T) {
-		//	err := h.has(key.Draw(t, "k"))
-		//	h.NoError(err)
-		//},
-		//"iterate": func(t *rapid.T) {
-		//	cmd := iterateGen.Draw(t, "iterate")
-		//	_, err := h.iterate(cmd.L, cmd.R, cmd.Ascending, cmd.StopAfter)
-		//	h.NoError(err)
-		//},
+		"remove": func(t *rapid.T) {
+			k := key.Draw(t, "k")
+			if !keys.Has(k) {
+				t.Logf("noop remove")
+				return
+			}
+			keys.Delete(k)
+			// TODO: remove should be useable without the key present
+			err := h.remove(k)
+			h.NoError(err)
+		},
+		"has": func(t *rapid.T) {
+			err := h.has(key.Draw(t, "k"))
+			h.NoError(err)
+		},
+		"iterate": func(t *rapid.T) {
+			cmd := iterateGen.Draw(t, "iterate")
+			_, err := h.iterate(cmd.L, cmd.R, cmd.Ascending, cmd.StopAfter)
+			h.NoError(err)
+		},
 		"rebuild from scratch": func(t *rapid.T) {
 			if keys.Len() == 0 {
 				return
@@ -230,22 +230,10 @@ func testWithRapid(t *rapid.T) {
 				h.NoError(err)
 			}
 
-			areEqual, err := haveEqualRoots(h.dst.MutableTree, h.tree)
-			h.NoError(err)
-			if !areEqual {
-				t.Fatal("oop 1", err)
-			}
-
-			// TODO: why did celestia have this line? https://github.com/rollkit/iavl/blob/a84fef0584a3ca6df780a32d8245f5a582e40121/deepsubtree_test.go#L170
+			// TODO(danwt): explain
 			for _, kv := range keys.Values() {
 				err = h.set(kv, kv)
 				h.NoError(err)
-			}
-
-			areEqual, err = haveEqualRoots(h.dst.MutableTree, h.tree)
-			h.NoError(err)
-			if !areEqual {
-				t.Fatal("oop 2", err)
 			}
 		},
 	})
