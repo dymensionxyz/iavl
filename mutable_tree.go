@@ -362,14 +362,25 @@ type TracingIterator struct {
 }
 
 func (iter TracingIterator) Valid() bool {
-	return iter.Iterator.Valid() // TODO(danwt): should not allow to continue if there are errors in the past
+	iter.trace(func() []byte {
+		k := iter.Iterator.Key()
+		iter.Iterator.Valid()
+		return k
+	})
 }
 
 func (iter TracingIterator) Next() {
+	iter.trace(func() []byte {
+		k := iter.Iterator.Key()
+		iter.Iterator.Next()
+		return k
+	})
+}
+
+func (iter TracingIterator) trace(f func() []byte) {
 	// TODO(danwt): need to clone? if it fails first time, try cloning, see what Manav did
 	iter.tree.ndb.keysAccessed = make(set.Set[string])
-	k := iter.Key()
-	iter.Iterator.Next()
+	k := f()
 	keysAccessed := iter.tree.ndb.keysAccessed.Values()
 
 	existenceProofs, err := iter.tree.reapExistenceProofs(keysAccessed)
