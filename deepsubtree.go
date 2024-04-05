@@ -88,7 +88,7 @@ func (dst *DeepSubTree) buildTree(rootHash []byte) error {
 		if dst.root != nil {
 			// sanity check
 			return fmt.Errorf(
-				"deep subtree rootHash: %s does not match expected rootHash: %s",
+				"deep subtree rootHash: %x does not match expected rootHash: %x",
 				workingHash,
 				rootHash,
 			)
@@ -150,18 +150,13 @@ type verificationOptions struct {
 
 type VerificationOption func(*verificationOptions)
 
-func WithEnforceOpMatch(enforce bool) VerificationOption {
-	return func(opts *verificationOptions) {
-		opts.enforceOpMatch = enforce
-	}
-}
-
 // Verifies the given operation matches up with the witness data.
 // Also, verifies and adds existence proofs related to the operation.
 func (dst *DeepSubTree) verifyOperationAndProofs(operation Operation, key []byte, value []byte, options ...VerificationOption) error {
 	opts := verificationOptions{
 		// defaults
 		incrementOpsCounter: true,
+		enforceOpMatch:      true,
 	}
 
 	for _, o := range options {

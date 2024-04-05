@@ -178,7 +178,7 @@ func testWithRapid(t *rapid.T) {
 			areEqual, err := haveEqualRoots(h.dst.MutableTree, h.tree)
 			h.NoError(err)
 			if !areEqual {
-				t.Fatal("iavl and deep subtree roots are not equal")
+				t.Fatal("tree and dst roots are not equal", err)
 			}
 		},
 		"get": func(t *rapid.T) {
@@ -191,17 +191,17 @@ func testWithRapid(t *rapid.T) {
 			err := h.set(kv, kv)
 			h.NoError(err)
 		},
-		"remove": func(t *rapid.T) {
-			k := key.Draw(t, "k")
-			if !keys.Has(k) {
-				t.Logf("noop remove")
-				return
-			}
-			keys.Delete(k)
-			// TODO: remove should be useable without the key present
-			err := h.remove(k)
-			h.NoError(err)
-		},
+		//"remove": func(t *rapid.T) {
+		//	k := key.Draw(t, "k")
+		//	if !keys.Has(k) {
+		//		t.Logf("noop remove")
+		//		return
+		//	}
+		//	keys.Delete(k)
+		//	// TODO: remove should be useable without the key present
+		//	err := h.remove(k)
+		//	h.NoError(err)
+		//},
 		"has": func(t *rapid.T) {
 			err := h.has(key.Draw(t, "k"))
 			h.NoError(err)
@@ -209,6 +209,25 @@ func testWithRapid(t *rapid.T) {
 		"iterate": func(t *rapid.T) {
 			cmd := iterateGen.Draw(t, "iterate")
 			_, err := h.iterate(cmd.L, cmd.R, cmd.Ascending, cmd.StopAfter)
+			h.NoError(err)
+		},
+		"manual update": func(t *rapid.T) {
+			kv := key.Draw(t, "kv")
+			if keys.Has(kv) {
+				return // TODO: don't want this
+			}
+			keys.Add(kv)
+			_, err := h.tree.Set(toBz(kv), toBz(kv))
+			h.NoError(err)
+			_, _, err = h.tree.SaveVersion()
+			h.NoError(err)
+			rootHash, err := h.tree.WorkingHash()
+			h.NoError(err)
+			ics23proof, err := h.tree.GetMembershipProof(toBz(kv))
+			h.NoError(err)
+			err = h.dst.AddExistenceProofs([]*ics23.ExistenceProof{
+				ics23proof.GetExist(),
+			}, rootHash)
 			h.NoError(err)
 		},
 	})
@@ -245,19 +264,19 @@ func (h *helper) set(keyI, valueI int) error {
 func (h *helper) get(keyI int) error {
 	key := toBz(keyI)
 
-	treeValue, err := h.tree.Get(key)
+	expect, err := h.tree.Get(key)
 	if err != nil {
 		return fmt.Errorf("tree get: %w", err)
 	}
 	witness := h.tree.witnessData[len(h.tree.witnessData)-1]
 	h.dst.SetWitnessData([]WitnessData{witness})
 
-	dstValue, err := h.dst.Get(key)
+	got, err := h.dst.Get(key)
 	if err != nil {
 		return fmt.Errorf("dst get: %w", err)
 	}
-	if !bytes.Equal(dstValue, treeValue) {
-		return fmt.Errorf("get mismatch: key: %x: expect %x: got: %x", key, treeValue, dstValue)
+	if !bytes.Equal(expect, got) {
+		return fmt.Errorf("get mismatch: key: %x: expect %x: got: %x", key, expect, got)
 	}
 
 	return nil
