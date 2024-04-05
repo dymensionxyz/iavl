@@ -23,6 +23,9 @@ type DeepSubTree struct {
 	initialRootHash  []byte        // Initial Root Hash when Deep Subtree is initialized for an already existing tree
 	witnessData      []WitnessData // Represents a trace operation along with inclusion proofs required for operation at i
 	operationCounter int           // Track of which operation in the witness data list the Deep Subtree is on
+
+	// TODO: I'll need a map(?) because people can take out multiple iterators at a time
+	iterErrors []error // Errors encountered during using iterators
 }
 
 // NewDeepSubTree returns a new deep subtree with the specified cache size, datastore, and version.
@@ -139,9 +142,30 @@ func (dst *DeepSubTree) linkNode(node *Node) error {
 	return nil
 }
 
+type verificationOptions struct {
+	incrementOpsCounter bool
+}
+
+type VerificationOption func(*verificationOptions)
+
+func WithIncrementOpsCounter(increment bool) VerificationOption {
+	return func(opts *verificationOptions) {
+		opts.incrementOpsCounter = increment
+	}
+}
+
 // Verifies the given operation matches up with the witness data.
 // Also, verifies and adds existence proofs related to the operation.
-func (dst *DeepSubTree) verifyOperationAndProofs(operation Operation, key []byte, value []byte) error {
+func (dst *DeepSubTree) verifyOperationAndProofs(operation Operation, key []byte, value []byte, options ...VerificationOption) error {
+	opts := verificationOptions{
+		// defaults
+		incrementOpsCounter: true,
+	}
+
+	for _, o := range options {
+		o(&opts)
+	}
+
 	if dst.witnessData == nil {
 		return errors.New("witness data in deep subtree is nil")
 	}
@@ -176,7 +200,9 @@ func (dst *DeepSubTree) verifyOperationAndProofs(operation Operation, key []byte
 	if err != nil {
 		return err
 	}
-	dst.operationCounter++
+	if opts.incrementOpsCounter {
+		dst.operationCounter++
+	}
 	return nil
 }
 
@@ -336,23 +362,25 @@ func (dst *DeepSubTree) get(key []byte) ([]byte, error) {
 type VerifyingIterator struct {
 	dbm.Iterator
 	dst *DeepSubTree
-	err error
-}
-
-func (iter VerifyingIterator) Next() {
-	if iter.err != nil {
-		return
-	}
-	err := iter.dst.verifyOperationAndProofs("read", iter.Key(), nil)
-	if err != nil {
-		iter.err = err
-		return
-	}
-	iter.Iterator.Next()
 }
 
 func (iter VerifyingIterator) Valid() bool {
-	return iter.err == nil && iter.Iterator.Valid()
+	err := iter.dst.verifyOperationAndProofs("read", iter.Key(), nil, WithIncrementOpsCounter(false))
+	if err != nil {
+		iter.dst.iterErrors = append(iter.dst.iterErrors, err)
+		return false
+	}
+	return iter.Iterator.Valid() // TODO(danwt): should not allow to continue if there are errors in the past
+}
+
+func (iter VerifyingIterator) Next() {
+	// TODO(danwt): should not allow to continue if there are errors in the past
+	err := iter.dst.verifyOperationAndProofs("read", iter.Key(), nil)
+	if err != nil {
+		iter.dst.iterErrors = append(iter.dst.iterErrors, err)
+		return
+	}
+	iter.Iterator.Next()
 }
 
 // Iterator returns an iterator that can be used to iterate over a domain of keys in ascending order,

@@ -43,6 +43,8 @@ type MutableTree struct {
 	mtx            sync.Mutex
 	tracingEnabled bool
 	witnessData    []WitnessData
+	// TODO: I'll need a map(?) because people can take out multiple iterators at a time
+	iterErrors []error // Errors encountered during using iterators
 }
 
 // NewMutableTree returns a new tree with the specified cache size and datastore.
@@ -356,7 +358,10 @@ func (tree *MutableTree) Iterate(fn func(key []byte, value []byte) bool) (stoppe
 type TracingIterator struct {
 	dbm.Iterator
 	tree *MutableTree
-	err  error
+}
+
+func (iter TracingIterator) Valid() bool {
+	return iter.Iterator.Valid() // TODO(danwt): should not allow to continue if there are errors in the past
 }
 
 func (iter TracingIterator) Next() {
@@ -368,18 +373,15 @@ func (iter TracingIterator) Next() {
 
 	existenceProofs, err := iter.tree.reapExistenceProofs(keysAccessed)
 	if err != nil {
-		iter.err = err
+		iter.tree.iterErrors = append(iter.tree.iterErrors, err)
 		return
 	}
+	// TODO(danwt): should not allow to continue if there are errors in the past
 	iter.tree.witnessData = append(iter.tree.witnessData, WitnessData{
 		Operation: "read",
 		Key:       k,
 		Proofs:    existenceProofs,
 	})
-}
-
-func (iter TracingIterator) Valid() bool {
-	return iter.err == nil && iter.Iterator.Valid()
 }
 
 // Iterator returns an iterator over the mutable tree.

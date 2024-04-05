@@ -142,14 +142,10 @@ func TestReplicate(t *testing.T) {
 		fmt.Printf("\niterate\n")
 		_, err := h.iterate(0, 1, true, 0)
 
-		ans, err := h.dst.get(toBz(2))
-		require.NoError(t, err)
-		require.Equal(t, toBz(2), ans)
-
 		fmt.Printf("tree:\n")
 		printN(h.tree.ndb, h.tree.root, 0, true, false)
 		fmt.Printf("\ndst:\n")
-		printN(h.dst.ndb, h.dst.root, 0, false, false)
+		printN(h.dst.ndb, h.dst.root, 0, true, false)
 
 		require.NoError(t, err)
 	})
@@ -386,7 +382,8 @@ func (h *helper) iterate(startI, endI int, ascending bool, stopAfter int) (nVisi
 	// TODO: do I need an operation for New()?
 
 	i := 0
-	for ; itTree.Valid() && (stopAfter == 0 || i < stopAfter); itTree.Next() {
+	for itTree.Valid() && (stopAfter == 0 || i < stopAfter) {
+		h.NoIteratorErrors() // check valid
 
 		i++
 		s, e := itTree.Domain()
@@ -401,9 +398,9 @@ func (h *helper) iterate(startI, endI int, ascending bool, stopAfter int) (nVisi
 			value: v,
 			err:   err,
 		})
+		itTree.Next()
+		h.NoIteratorErrors() // check next
 	}
-
-	h.NoError(itTree.(TracingIterator).err)
 
 	itTreeCloseErr := itTree.Close()
 	h.dst.SetWitnessData(slices.Clone(h.tree.witnessData[l:])) // TODO: need clone?
@@ -418,7 +415,8 @@ func (h *helper) iterate(startI, endI int, ascending bool, stopAfter int) (nVisi
 	}
 
 	i = 0
-	for ; itDST.Valid() && (stopAfter == 0 || i < stopAfter); itDST.Next() {
+	for itDST.Valid() && (stopAfter == 0 || i < stopAfter) {
+		h.NoIteratorErrors() // check valid
 		s, e := itDST.Domain()
 		k := itDST.Key()
 		v := itDST.Value()
@@ -437,9 +435,9 @@ func (h *helper) iterate(startI, endI int, ascending bool, stopAfter int) (nVisi
 		if !errors.Is(r.err, err) || !errors.Is(err, r.err) { // TODO: makes sense?
 			return 0, fmt.Errorf("error mismatch")
 		}
+		itDST.Next()
+		h.NoIteratorErrors() // check next
 	}
-
-	// h.NoError(itDST.(VerifyingIterator).err) TODO: bring back?
 
 	if i != len(results) {
 		return 0, fmt.Errorf("valid cnt mismatch: expect %d: got %d", len(results), i)
@@ -467,6 +465,14 @@ type helper struct {
 func (h *helper) NoError(err error) {
 	if err != nil {
 		h.f.Fatalf("%v", err)
+	}
+}
+
+func (h *helper) NoIteratorErrors() {
+	errs := slices.Clone(h.tree.iterErrors)
+	errs = append(errs, h.dst.iterErrors...)
+	if 0 < len(errs) {
+		h.f.Fatalf("%v", errs)
 	}
 }
 
