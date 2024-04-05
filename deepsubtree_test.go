@@ -126,35 +126,34 @@ func bootstrap(f fatalf) *helper {
 func TestReplicate(t *testing.T) {
 	t.Run("foo", func(t *testing.T) {
 		h := bootstrap(t)
+
 		_ = h
-		fmt.Printf("set0\n")
-		require.NoError(t, h.set(0, 0))
-		h.dst.printNodeDeepSubtree(h.dst.root, 0)
-		fmt.Printf("\nset1\n")
-		require.NoError(t, h.set(1, 1))
-		h.dst.printNodeDeepSubtree(h.dst.root, 0)
-		fmt.Printf("\nset4\n")
-		require.NoError(t, h.set(4, 4))
-		h.dst.printNodeDeepSubtree(h.dst.root, 0)
-		fmt.Printf("\nset5\n")
-		require.NoError(t, h.set(5, 5))
-		h.dst.printNodeDeepSubtree(h.dst.root, 0)
-		fmt.Printf("\nset2\n")
-		require.NoError(t, h.set(2, 2))
-		h.dst.printNodeDeepSubtree(h.dst.root, 0)
-		fmt.Printf("\nset3\n")
-		require.NoError(t, h.set(3, 3))
-		h.dst.printNodeDeepSubtree(h.dst.root, 0)
-		fmt.Printf("\nset-1\n")
-		require.NoError(t, h.set(-1, -1))
-		h.dst.printNodeDeepSubtree(h.dst.root, 0)
+		for _, i := range []int{
+			0, 1, 5, 6, 3, 4, 2,
+		} {
+
+			fmt.Printf("\nset%d\n", i)
+			require.NoError(t, h.set(i, i))
+			fmt.Printf("tree:\n")
+			printN(h.tree.root, 0, true, h.tree.ndb)
+			fmt.Printf("\ndst:\n")
+			printN(h.dst.root, 0, true, h.dst.ndb)
+		}
 		fmt.Printf("\niterate\n")
 		_, err := h.iterate(0, 1, true, 0)
 
-		h.dst.printNodeDeepSubtree(h.dst.root, 2)
+		fmt.Printf("tree:\n")
+		printN(h.tree.root, 0, true, h.tree.ndb)
+		fmt.Printf("\ndst:\n")
+		printN(h.dst.root, 0, false, h.dst.ndb)
 
 		require.NoError(t, err)
 	})
+}
+
+func FuzzPropertyBased(f *testing.F) {
+	// TODO: sanity check that it works
+	f.Fuzz(rapid.MakeFuzz(testWithRapid))
 }
 
 func TestPropertyBased(t *testing.T) {
@@ -183,34 +182,23 @@ func TestPropertyBased(t *testing.T) {
 	rapid.Check(t, testWithRapid)
 }
 
-func FuzzPropertyBased(f *testing.F) {
-	// TODO: sanity check that it works
-	f.Fuzz(rapid.MakeFuzz(testWithRapid))
-}
-
 func testWithRapid(t *rapid.T) {
 	h := bootstrap(t)
 
+	key := rapid.IntRange(0, 12)
+
 	keys := make(set.Set[int])
-	getGen := rapid.Make[GetCmd]()
-	setGen := rapid.Make[SetCmd]()
-	removeGen := rapid.Make[RemoveCmd]()
-	hasGen := rapid.Make[HasCmd]()
+
 	iterateGen := rapid.Custom[IterateCmd](func(t *rapid.T) IterateCmd {
 		return IterateCmd{
-			L: rapid.IntRange(0, 10).Draw(t, "L"),
-			R: rapid.IntRange(0, 10).Draw(t, "R"),
+			L: key.Draw(t, "L"),
+			R: key.Draw(t, "R"),
 			// Ascending: rapid.Bool().Draw(t, "Ascending"),
 			Ascending: true,
 			StopAfter: rapid.IntRange(0, 100).Draw(t, "StopAfter"),
 		}
 	})
 
-	_ = keys
-	_ = getGen
-	_ = setGen
-	_ = removeGen
-	_ = hasGen
 	_ = iterateGen
 
 	t.Repeat(map[string]func(*rapid.T){
@@ -222,30 +210,28 @@ func testWithRapid(t *rapid.T) {
 			}
 		},
 		//"get": func(t *rapid.T) {
-		//	cmd := getGen.Draw(t, "get")
-		//	err := h.get(cmd.K)
+		//	err := h.get(key.Draw(t, "k"))
 		//	h.NoError(err)
 		//},
 		"set": func(t *rapid.T) {
-			cmd := setGen.Draw(t, "set")
-			keys.Add(cmd.K)
-			err := h.set(cmd.K, cmd.V)
+			kv := key.Draw(t, "kv")
+			keys.Add(kv)
+			err := h.set(kv, kv)
 			h.NoError(err)
 		},
 		//"remove": func(t *rapid.T) {
-		//	cmd := removeGen.Draw(t, "remove")
-		//	if !keys.Has(cmd.K) {
+		//	k := key.Draw(t, "k")
+		//	if !keys.Has(k) {
 		//		t.Logf("noop remove")
 		//		return
 		//	}
-		//	keys.Delete(cmd.K)
+		//	keys.Delete(k)
 		//	// TODO: remove should be useable without the key present
-		//	err := h.remove(cmd.K)
+		//	err := h.remove(k)
 		//	h.NoError(err)
 		//},
 		//"has": func(t *rapid.T) {
-		//	cmd := hasGen.Draw(t, "has")
-		//	err := h.has(cmd.K)
+		//	err := h.has(key.Draw(t, "k"))
 		//	h.NoError(err)
 		//},
 		"iterate": func(t *rapid.T) {
@@ -416,11 +402,10 @@ func (h *helper) iterate(startI, endI int, ascending bool, stopAfter int) (nVisi
 	h.NoError(itTree.(TracingIterator).err)
 
 	itTreeCloseErr := itTree.Close()
-
 	h.dst.SetWitnessData(slices.Clone(h.tree.witnessData[l:])) // TODO: need clone?
 
 	fmt.Printf("results: %+v\n", results)
-	fmt.Printf("iterate dst")
+	fmt.Printf("iterate dst\n")
 
 	// Set key-value pair in IAVL tree
 	itDST, err := h.dst.Iterator(start, end, ascending)
@@ -483,22 +468,6 @@ func (h *helper) NoError(err error) {
 
 func toBz(i int) []byte {
 	return []byte(strconv.Itoa(i))
-}
-
-type SetCmd struct {
-	K, V int
-}
-
-type GetCmd struct {
-	K int
-}
-
-type RemoveCmd struct {
-	K int
-}
-
-type HasCmd struct {
-	K int
 }
 
 type IterateCmd struct {

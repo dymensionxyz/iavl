@@ -97,7 +97,9 @@ func (t *traversal) next() (*Node, error) {
 
 	node, delayed := t.delayedNodes.pop()
 
-	node.addTrace(t.tree, node.key) // TODO: necessary?
+	if node != nil {
+		node.addTrace(t.tree, node.key) // TODO: necessary?
+	}
 
 	// Already expanded, immediately return.
 	if !delayed || node == nil {

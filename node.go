@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"strings"
 
 	"github.com/cosmos/iavl/cache"
 	"github.com/pkg/errors"
@@ -564,3 +565,58 @@ var (
 	ErrLeftHashIsNil  = fmt.Errorf("node.leftHash was nil in writeBytes")
 	ErrRightHashIsNil = fmt.Errorf("node.rightHash was nil in writeBytes")
 )
+
+// nolint: unused
+// Prints a Deep Subtree recursively.
+// Modified version of printNode from util.go
+func printN(node *Node, indent int, all bool, ndb *nodeDB) error {
+	indentPrefix := strings.Repeat("    ", indent)
+
+	if node == nil {
+		fmt.Printf("%s<nil>\n", indentPrefix)
+		return nil
+	}
+	if node.rightNode != nil {
+		err := printN(node.rightNode, indent+1, all, ndb)
+		if err != nil {
+			return err
+		}
+	} else if all && node.rightHash != nil {
+		n, err := ndb.GetNode(node.rightHash)
+		if err != nil {
+			return err
+		}
+		err = printN(n, indent+1, all, ndb)
+		if err != nil {
+			return err
+		}
+	}
+
+	hash, err := node._hash()
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("%sh:%x", indentPrefix, hash)
+	if node.isLeaf() {
+		fmt.Printf("%s%s:%s (%v)", indentPrefix, node.key, node.value, node.height)
+	}
+	fmt.Printf("\n")
+
+	if node.leftNode != nil {
+		err := printN(node.leftNode, indent+1, all, ndb)
+		if err != nil {
+			return err
+		}
+	} else if all && node.leftHash != nil {
+		n, err := ndb.GetNode(node.leftHash)
+		if err != nil {
+			return err
+		}
+		err = printN(n, indent+1, all, ndb)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
