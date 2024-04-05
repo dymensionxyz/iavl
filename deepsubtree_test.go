@@ -173,7 +173,7 @@ func testWithRapid(t *rapid.T) {
 
 	_ = iterateGen
 
-	t.Repeat(map[string]func(*rapid.T){
+	ops := map[string]func(*rapid.T){
 		"": func(t *rapid.T) { // Check
 			areEqual, err := haveEqualRoots(h.dst.MutableTree, h.tree)
 			h.NoError(err)
@@ -241,7 +241,16 @@ func testWithRapid(t *rapid.T) {
 				h.NoError(err)
 			}
 		},
-	})
+	}
+	Pick(ops,
+		"get",
+		"set",
+		"remove",
+		"has",
+		"iterate",
+		//"rebuild from scratch",
+	)
+	t.Repeat(ops)
 }
 
 // Does the Set operation on full IAVL tree first, gets the witness data generated from
@@ -493,4 +502,37 @@ type IterateCmd struct {
 	L, R      int
 	Ascending bool
 	StopAfter int
+}
+
+/*
+go 1.22 stuff
+*/
+
+func DeleteFunc[M ~map[K]V, K comparable, V any](m M, del func(K, V) bool) {
+	for k, v := range m {
+		if del(k, v) {
+			delete(m, k)
+		}
+	}
+}
+
+func Contains[S ~[]E, E comparable](s S, v E) bool {
+	return Index(s, v) >= 0
+}
+
+func Index[S ~[]E, E comparable](s S, v E) int {
+	for i := range s {
+		if v == s[i] {
+			return i
+		}
+	}
+	return -1
+}
+
+func Pick[M ~map[K]V, K comparable, V any](m M, ks ...K) {
+	{
+		DeleteFunc(m, func(k K, _ V) bool {
+			return !Contains(ks, k)
+		})
+	}
 }
