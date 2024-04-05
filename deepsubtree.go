@@ -372,11 +372,34 @@ type VerifyingIterator struct {
 	dst *DeepSubTree
 }
 
+func NewVerifyingIterator(dst *DeepSubTree, start, end []byte, ascending bool) (dbm.Iterator, error) {
+	fmt.Printf("pre constructor - pre verify\n")
+	err := dst.verifyOperationAndProofs("read", nil, nil,
+		// WithIncrementOpsCounter(false),
+		WithEnforceOpMatch(false),
+	)
+	if err != nil {
+		return nil, err
+	}
+	fmt.Printf("pre valid() - post verify\n")
+	iter, err := dst.ImmutableTree.Iterator(start, end, ascending)
+	if err != nil {
+		return nil, fmt.Errorf("immutable tree iterator: %w", err)
+	}
+	return VerifyingIterator{Iterator: iter, dst: dst}, nil
+}
+
+// Iterator returns an iterator that can be used to iterate over a domain of keys in ascending order,
+// verifying proofs for each key as it goes.
+func (dst *DeepSubTree) Iterator(start, end []byte, ascending bool) (dbm.Iterator, error) {
+	return NewVerifyingIterator(dst, start, end, ascending)
+}
+
 func (iter VerifyingIterator) Valid() bool {
 	// TODO: it's bogus here to use witness data as arg
-	fmt.Printf("pre valid - pre verify\n")
-	printN(iter.dst.ndb, iter.dst.root, 0, true, false)
-	err := iter.dst.verifyOperationAndProofs("read", iter.Key(), nil,
+	fmt.Printf("pre valid() - pre verify\n")
+	// printN(iter.dst.ndb, iter.dst.root, 0, true, false)
+	err := iter.dst.verifyOperationAndProofs("read", nil, nil,
 		// WithIncrementOpsCounter(false),
 		WithEnforceOpMatch(false),
 	)
@@ -385,8 +408,8 @@ func (iter VerifyingIterator) Valid() bool {
 		return false
 	}
 
-	fmt.Printf("pre valid - post verify\n")
-	printN(iter.dst.ndb, iter.dst.root, 0, true, false)
+	fmt.Printf("pre valid() - post verify\n")
+	// printN(iter.dst.ndb, iter.dst.root, 0, true, false)
 
 	return iter.Iterator.Valid() // TODO(danwt): should not allow to continue if there are errors in the past
 }
@@ -399,16 +422,6 @@ func (iter VerifyingIterator) Next() {
 		return
 	}
 	iter.Iterator.Next()
-}
-
-// Iterator returns an iterator that can be used to iterate over a domain of keys in ascending order,
-// verifying proofs for each key as it goes.
-func (dst *DeepSubTree) Iterator(start, end []byte, ascending bool) (dbm.Iterator, error) {
-	iter, err := dst.ImmutableTree.Iterator(start, end, ascending)
-	if err != nil {
-		return nil, fmt.Errorf("immutable tree iterator: %w", err)
-	}
-	return VerifyingIterator{Iterator: iter, dst: dst}, nil
 }
 
 // Remove verifies the Remove operation with witness data and perform the given delete operation

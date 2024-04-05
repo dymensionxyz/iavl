@@ -388,6 +388,29 @@ func NewTracingIterator(tree *MutableTree, start, end []byte, ascending bool) (d
 	return iter, nil
 }
 
+// Iterator returns an iterator over the mutable tree.
+// CONTRACT: no updates are made to the tree while an iterator is active.
+func (tree *MutableTree) Iterator(start, end []byte, ascending bool) (dbm.Iterator, error) {
+	if !tree.skipFastStorageUpgrade {
+		isFastCacheEnabled, err := tree.IsFastCacheEnabled()
+		if err != nil {
+			return nil, err
+		}
+
+		if isFastCacheEnabled {
+			iter := NewUnsavedFastIterator(start, end, ascending, tree.ndb, tree.unsavedFastNodeAdditions, tree.unsavedFastNodeRemovals)
+			return iter, nil
+		}
+	}
+
+	if !tree.tracingEnabled {
+		return tree.ImmutableTree.Iterator(start, end, ascending)
+	}
+
+	// Proofs and witnesses are reaped as the iterator is used
+	return NewTracingIterator(tree, start, end, ascending)
+}
+
 func (iter TracingIterator) Valid() bool {
 	// TODO(danwt): need to clone? if it fails first time, try cloning, see what Manav did
 	iter.tree.ndb.keysAccessed = make(set.Set[string])
@@ -436,29 +459,6 @@ func (iter TracingIterator) Next() {
 		Key:       k,
 		Proofs:    existenceProofs,
 	})
-}
-
-// Iterator returns an iterator over the mutable tree.
-// CONTRACT: no updates are made to the tree while an iterator is active.
-func (tree *MutableTree) Iterator(start, end []byte, ascending bool) (dbm.Iterator, error) {
-	if !tree.skipFastStorageUpgrade {
-		isFastCacheEnabled, err := tree.IsFastCacheEnabled()
-		if err != nil {
-			return nil, err
-		}
-
-		if isFastCacheEnabled {
-			iter := NewUnsavedFastIterator(start, end, ascending, tree.ndb, tree.unsavedFastNodeAdditions, tree.unsavedFastNodeRemovals)
-			return iter, nil
-		}
-	}
-
-	if !tree.tracingEnabled {
-		return tree.ImmutableTree.Iterator(start, end, ascending)
-	}
-
-	// Proofs and witnesses are reaped as the iterator is used
-	return NewTracingIterator(tree, start, end, ascending)
 }
 
 func (tree *MutableTree) set(key []byte, value []byte) (orphans []*Node, updated bool, err error) {
