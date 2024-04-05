@@ -127,14 +127,32 @@ func TestReplicate(t *testing.T) {
 	t.Run("foo", func(t *testing.T) {
 		h := bootstrap(t)
 		_ = h
+		fmt.Printf("set0\n")
 		require.NoError(t, h.set(0, 0))
-		require.NoError(t, h.set(1, 0))
-		require.NoError(t, h.set(4, 0))
-		require.NoError(t, h.set(5, 0))
-		require.NoError(t, h.set(2, 0))
-		require.NoError(t, h.set(3, 0))
-		require.NoError(t, h.set(-1, 0))
+		h.dst.printNodeDeepSubtree(h.dst.root, 0)
+		fmt.Printf("\nset1\n")
+		require.NoError(t, h.set(1, 1))
+		h.dst.printNodeDeepSubtree(h.dst.root, 0)
+		fmt.Printf("\nset4\n")
+		require.NoError(t, h.set(4, 4))
+		h.dst.printNodeDeepSubtree(h.dst.root, 0)
+		fmt.Printf("\nset5\n")
+		require.NoError(t, h.set(5, 5))
+		h.dst.printNodeDeepSubtree(h.dst.root, 0)
+		fmt.Printf("\nset2\n")
+		require.NoError(t, h.set(2, 2))
+		h.dst.printNodeDeepSubtree(h.dst.root, 0)
+		fmt.Printf("\nset3\n")
+		require.NoError(t, h.set(3, 3))
+		h.dst.printNodeDeepSubtree(h.dst.root, 0)
+		fmt.Printf("\nset-1\n")
+		require.NoError(t, h.set(-1, -1))
+		h.dst.printNodeDeepSubtree(h.dst.root, 0)
+		fmt.Printf("\niterate\n")
 		_, err := h.iterate(0, 1, true, 0)
+
+		h.dst.printNodeDeepSubtree(h.dst.root, 2)
+
 		require.NoError(t, err)
 	})
 }
@@ -359,7 +377,7 @@ func (h *helper) iterate(startI, endI int, ascending bool, stopAfter int) (nVisi
 	l := len(h.tree.witnessData)
 
 	// Set key-value pair in IAVL tree
-	fmt.Printf("iterate tree")
+	fmt.Printf("iterate tree\n")
 	itTree, err := h.tree.Iterator(start, end, ascending)
 	if err != nil {
 		return

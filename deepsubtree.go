@@ -533,10 +533,11 @@ func (dst *DeepSubTree) printNodeDeepSubtree(node *Node, indent int) error {
 		return err
 	}
 
-	fmt.Printf("%sh:%X\n", indentPrefix, hash)
+	fmt.Printf("%sh:%x", indentPrefix, hash)
 	if node.isLeaf() {
-		fmt.Printf("%s%X:%X (%v)\n", indentPrefix, node.key, node.value, node.height)
+		fmt.Printf("%s%s:%s (%v)", indentPrefix, node.key, node.value, node.height)
 	}
+	fmt.Printf("\n")
 
 	if node.leftNode != nil {
 		err := dst.printNodeDeepSubtree(node.leftNode, indent+1)
