@@ -128,6 +128,7 @@ func FuzzPropertyBased(f *testing.F) {
 	f.Fuzz(rapid.MakeFuzz(testWithRapid))
 }
 
+// go test -run=TestPropertyBased -rapid.checks=10000 -rapid.steps=50
 func TestPropertyBased(t *testing.T) {
 	/*
 	  -rapid.checks int
@@ -157,16 +158,15 @@ func TestPropertyBased(t *testing.T) {
 func testWithRapid(t *rapid.T) {
 	h := bootstrap(t)
 
-	key := rapid.IntRange(0, 12)
+	key := rapid.IntRange(-12, 12)
 
 	keys := make(set.Set[int])
 
 	iterateGen := rapid.Custom[IterateCmd](func(t *rapid.T) IterateCmd {
 		return IterateCmd{
-			L: key.Draw(t, "L"),
-			R: key.Draw(t, "R"),
-			// Ascending: rapid.Bool().Draw(t, "Ascending"),
-			Ascending: true,
+			L:         key.Draw(t, "L"),
+			R:         key.Draw(t, "R"),
+			Ascending: rapid.Bool().Draw(t, "Ascending"),
 			StopAfter: rapid.IntRange(0, 100).Draw(t, "StopAfter"),
 		}
 	})
