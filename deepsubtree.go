@@ -374,6 +374,8 @@ type VerifyingIterator struct {
 
 func (iter VerifyingIterator) Valid() bool {
 	// TODO: it's bogus here to use witness data as arg
+	fmt.Printf("pre valid - pre verify\n")
+	printN(iter.dst.ndb, iter.dst.root, 0, true, false)
 	err := iter.dst.verifyOperationAndProofs("read", iter.Key(), nil,
 		WithIncrementOpsCounter(false),
 		WithEnforceOpMatch(false),
@@ -382,6 +384,10 @@ func (iter VerifyingIterator) Valid() bool {
 		iter.dst.iterErrors = append(iter.dst.iterErrors, err)
 		return false
 	}
+
+	fmt.Printf("pre valid - post verify\n")
+	printN(iter.dst.ndb, iter.dst.root, 0, true, false)
+
 	return iter.Iterator.Valid() // TODO(danwt): should not allow to continue if there are errors in the past
 }
 
