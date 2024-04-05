@@ -367,9 +367,7 @@ type VerifyingIterator struct {
 }
 
 func NewVerifyingIterator(dst *DeepSubTree, start, end []byte, ascending bool) (dbm.Iterator, error) {
-	err := dst.verifyOperationAndProofs("read", nil, nil,
-		WithEnforceOpMatch(false),
-	)
+	err := dst.verifyOperationAndProofs("read", nil, nil)
 	if err != nil {
 		return nil, err
 	}
