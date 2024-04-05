@@ -181,31 +181,31 @@ func testWithRapid(t *rapid.T) {
 				t.Fatal("iavl and deep subtree roots are not equal")
 			}
 		},
-		//"get": func(t *rapid.T) {
-		//	err := h.get(key.Draw(t, "k"))
-		//	h.NoError(err)
-		//},
+		"get": func(t *rapid.T) {
+			err := h.get(key.Draw(t, "k"))
+			h.NoError(err)
+		},
 		"set": func(t *rapid.T) {
 			kv := key.Draw(t, "kv")
 			keys.Add(kv)
 			err := h.set(kv, kv)
 			h.NoError(err)
 		},
-		//"remove": func(t *rapid.T) {
-		//	k := key.Draw(t, "k")
-		//	if !keys.Has(k) {
-		//		t.Logf("noop remove")
-		//		return
-		//	}
-		//	keys.Delete(k)
-		//	// TODO: remove should be useable without the key present
-		//	err := h.remove(k)
-		//	h.NoError(err)
-		//},
-		//"has": func(t *rapid.T) {
-		//	err := h.has(key.Draw(t, "k"))
-		//	h.NoError(err)
-		//},
+		"remove": func(t *rapid.T) {
+			k := key.Draw(t, "k")
+			if !keys.Has(k) {
+				t.Logf("noop remove")
+				return
+			}
+			keys.Delete(k)
+			// TODO: remove should be useable without the key present
+			err := h.remove(k)
+			h.NoError(err)
+		},
+		"has": func(t *rapid.T) {
+			err := h.has(key.Draw(t, "k"))
+			h.NoError(err)
+		},
 		"iterate": func(t *rapid.T) {
 			cmd := iterateGen.Draw(t, "iterate")
 			if cmd.L > cmd.R {
