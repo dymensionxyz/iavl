@@ -15,98 +15,12 @@ import (
 
 	ics23 "github.com/confio/ics23/go"
 
-	"github.com/stretchr/testify/require"
 	db "github.com/tendermint/tm-db"
 )
 
 const (
 	cacheSize = math.MaxUint16
 )
-
-// Returns whether given trees have equal hashes
-func haveEqualRoots(tree1 *MutableTree, tree2 *MutableTree) (bool, error) {
-	rootHash, err := tree1.WorkingHash()
-	if err != nil {
-		return false, err
-	}
-
-	treeWorkingHash, err := tree2.WorkingHash()
-	if err != nil {
-		return false, err
-	}
-
-	// Check root hashes are equal
-	return bytes.Equal(rootHash, treeWorkingHash), nil
-}
-
-// Tests creating an empty Deep Subtree
-func TestEmptyDeepSubtree(t *testing.T) {
-	require := require.New(t)
-	getTree := func() *MutableTree {
-		tree, err := getTestTree(0)
-		require.NoError(err)
-		return tree
-	}
-
-	tree := getTree()
-
-	dst := NewDeepSubTree(db.NewMemDB(), 100, false, 0)
-
-	areEqual, err := haveEqualRoots(dst.MutableTree, tree)
-	require.NoError(err)
-	require.True(areEqual)
-}
-
-// Tests creating deep subtree step-by-step to match a regular tree, and checks if roots are equal
-func TestDeepSubTreeCreateFromProofs(t *testing.T) {
-	require := require.New(t)
-	getTree := func() *MutableTree {
-		tree, err := getTestTree(5)
-		require.NoError(err)
-
-		_, err = tree.Set([]byte("e"), []byte{5})
-		require.NoError(err)
-		_, err = tree.Set([]byte("d"), []byte{4})
-		require.NoError(err)
-		_, err = tree.Set([]byte("c"), []byte{3})
-		require.NoError(err)
-		_, err = tree.Set([]byte("b"), []byte{2})
-		require.NoError(err)
-		_, err = tree.Set([]byte("a"), []byte{1})
-		require.NoError(err)
-
-		_, _, err = tree.SaveVersion()
-		require.NoError(err)
-		return tree
-	}
-
-	tree := getTree()
-	rootHash, err := tree.WorkingHash()
-	require.NoError(err)
-
-	dst := NewDeepSubTree(db.NewMemDB(), 100, false, tree.version)
-	require.NoError(err)
-	dst.SetInitialRootHash(tree.root.hash)
-
-	// insert key/value pairs in tree
-	allkeys := [][]byte{
-		[]byte("a"), []byte("b"), []byte("c"), []byte("d"), []byte("e"),
-	}
-
-	// Put all keys inside the tree one by one
-	for _, key := range allkeys {
-		ics23proof, err := tree.GetMembershipProof(key)
-		require.NoError(err)
-		err = dst.AddExistenceProofs([]*ics23.ExistenceProof{
-			ics23proof.GetExist(),
-		}, rootHash)
-		require.NoError(err)
-	}
-
-	areEqual, err := haveEqualRoots(dst.MutableTree, tree)
-	require.NoError(err)
-	require.True(areEqual)
-}
 
 func bootstrap(f fatalf) *helper {
 	h := helper{
@@ -175,9 +89,12 @@ func testWithRapid(t *rapid.T) {
 
 	ops := map[string]func(*rapid.T){
 		"": func(t *rapid.T) { // Check
-			areEqual, err := haveEqualRoots(h.dst.MutableTree, h.tree)
+			var err error
+			hash1, err := h.tree.WorkingHash()
 			h.NoError(err)
-			if !areEqual {
+			hash2, err := h.dst.MutableTree.WorkingHash()
+			h.NoError(err)
+			if !bytes.Equal(hash1, hash2) {
 				t.Fatal("tree and dst roots are not equal", err)
 			}
 		},
@@ -223,7 +140,7 @@ func testWithRapid(t *rapid.T) {
 			rootHash, err := h.tree.WorkingHash()
 			h.NoError(err)
 
-			h.dst = NewDeepSubTree(db.NewMemDB(), cacheSize, true, h.tree.version)
+			h.dst = NewDeepSubTree(db.NewMemDB(), cacheSize, true, h.tree.version) // TODO: refac to avoid fast storage hardcode
 			h.dst.SetInitialRootHash(h.tree.root.hash)
 
 			for _, kv := range keys.Values() {
@@ -503,37 +420,4 @@ type IterateCmd struct {
 	L, R      int
 	Ascending bool
 	StopAfter int
-}
-
-/*
-go 1.22 stuff
-*/
-
-func DeleteFunc[M ~map[K]V, K comparable, V any](m M, del func(K, V) bool) {
-	for k, v := range m {
-		if del(k, v) {
-			delete(m, k)
-		}
-	}
-}
-
-func Contains[S ~[]E, E comparable](s S, v E) bool {
-	return Index(s, v) >= 0
-}
-
-func Index[S ~[]E, E comparable](s S, v E) int {
-	for i := range s {
-		if v == s[i] {
-			return i
-		}
-	}
-	return -1
-}
-
-func Pick[M ~map[K]V, K comparable, V any](m M, ks ...K) {
-	{
-		DeleteFunc(m, func(k K, _ V) bool {
-			return !Contains(ks, k)
-		})
-	}
 }

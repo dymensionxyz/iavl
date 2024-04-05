@@ -121,3 +121,36 @@ func ColoredBytes(data []byte, textColor, bytesColor func(...interface{}) string
 	}
 	return s
 }
+
+/*
+go 1.22 stuff
+*/
+
+func DeleteFunc[M ~map[K]V, K comparable, V any](m M, del func(K, V) bool) {
+	for k, v := range m {
+		if del(k, v) {
+			delete(m, k)
+		}
+	}
+}
+
+func Contains[S ~[]E, E comparable](s S, v E) bool {
+	return Index(s, v) >= 0
+}
+
+func Index[S ~[]E, E comparable](s S, v E) int {
+	for i := range s {
+		if v == s[i] {
+			return i
+		}
+	}
+	return -1
+}
+
+func Pick[M ~map[K]V, K comparable, V any](m M, ks ...K) {
+	{
+		DeleteFunc(m, func(k K, _ V) bool {
+			return !Contains(ks, k)
+		})
+	}
+}
