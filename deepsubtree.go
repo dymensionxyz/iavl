@@ -381,7 +381,7 @@ func NewVerifyingIterator(dst *DeepSubTree, start, end []byte, ascending bool) (
 	if err != nil {
 		return nil, err
 	}
-	fmt.Printf("pre valid() - post verify\n")
+	fmt.Printf("pre constructor - post verify\n")
 	iter, err := dst.ImmutableTree.Iterator(start, end, ascending)
 	if err != nil {
 		return nil, fmt.Errorf("immutable tree iterator: %w", err)
@@ -393,25 +393,6 @@ func NewVerifyingIterator(dst *DeepSubTree, start, end []byte, ascending bool) (
 // verifying proofs for each key as it goes.
 func (dst *DeepSubTree) Iterator(start, end []byte, ascending bool) (dbm.Iterator, error) {
 	return NewVerifyingIterator(dst, start, end, ascending)
-}
-
-func (iter VerifyingIterator) Valid() bool {
-	// TODO: it's bogus here to use witness data as arg
-	fmt.Printf("pre valid() - pre verify\n")
-	// printN(iter.dst.ndb, iter.dst.root, 0, true, false)
-	err := iter.dst.verifyOperationAndProofs("read", nil, nil,
-		// WithIncrementOpsCounter(false),
-		WithEnforceOpMatch(false),
-	)
-	if err != nil {
-		iter.dst.iterErrors = append(iter.dst.iterErrors, err)
-		return false
-	}
-
-	fmt.Printf("pre valid() - post verify\n")
-	// printN(iter.dst.ndb, iter.dst.root, 0, true, false)
-
-	return iter.Iterator.Valid() // TODO(danwt): should not allow to continue if there are errors in the past
 }
 
 func (iter VerifyingIterator) Next() {

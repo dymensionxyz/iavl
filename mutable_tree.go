@@ -411,31 +411,6 @@ func (tree *MutableTree) Iterator(start, end []byte, ascending bool) (dbm.Iterat
 	return NewTracingIterator(tree, start, end, ascending)
 }
 
-func (iter TracingIterator) Valid() bool {
-	// TODO(danwt): need to clone? if it fails first time, try cloning, see what Manav did
-	iter.tree.ndb.keysAccessed = make(set.Set[string])
-
-	////////
-	// STUFF
-	v := iter.Iterator.Valid()
-	////////
-
-	keysAccessed := iter.tree.ndb.keysAccessed.Values()
-
-	existenceProofs, err := iter.tree.reapExistenceProofs(keysAccessed)
-	if err != nil {
-		iter.tree.iterErrors = append(iter.tree.iterErrors, err)
-		return false // TODO:??
-	}
-	// TODO(danwt): should not allow to continue if there are errors in the past
-	iter.tree.witnessData = append(iter.tree.witnessData, WitnessData{
-		Operation: "read",
-		Key:       nil,
-		Proofs:    existenceProofs,
-	})
-	return v
-}
-
 func (iter TracingIterator) Next() {
 	// TODO(danwt): need to clone? if it fails first time, try cloning, see what Manav did
 	iter.tree.ndb.keysAccessed = make(set.Set[string])
