@@ -436,13 +436,14 @@ func (h *helper) iterate(startI, endI int, ascending bool, stopAfter int) (nVisi
 		if stopAfter != 0 && stopAfter <= i {
 			break
 		}
-		fmt.Printf("pre dst valid\n")
+		fmt.Printf("pre valid() call\n")
 		valid := itDST.Valid()
-		fmt.Printf("post dst valid\n")
+		fmt.Printf("pre valid() err check\n")
 		h.NoIteratorErrors() // check valid
 		if !valid {
 			break
 		}
+		fmt.Printf("post valid() err check\n")
 		s, e := itDST.Domain()
 		k := itDST.Key()
 		v := itDST.Value()
@@ -461,8 +462,11 @@ func (h *helper) iterate(startI, endI int, ascending bool, stopAfter int) (nVisi
 		if !errors.Is(r.err, err) || !errors.Is(err, r.err) { // TODO: makes sense?
 			return 0, fmt.Errorf("error mismatch")
 		}
+		fmt.Printf("pre next() call\n")
 		itDST.Next()
+		fmt.Printf("pre next() err check\n")
 		h.NoIteratorErrors() // check next
+		fmt.Printf("post next() err check\n")
 	}
 
 	if i != len(results) {

@@ -385,7 +385,8 @@ func NewTracingIterator(tree *MutableTree, start, end []byte, ascending bool) (d
 		Key:       nil,
 		Proofs:    existenceProofs,
 	})
-	return iter, nil
+	ret.Iterator = iter
+	return ret, nil
 }
 
 // Iterator returns an iterator over the mutable tree.
