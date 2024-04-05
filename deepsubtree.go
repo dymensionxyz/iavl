@@ -377,7 +377,7 @@ func (iter VerifyingIterator) Valid() bool {
 	fmt.Printf("pre valid - pre verify\n")
 	printN(iter.dst.ndb, iter.dst.root, 0, true, false)
 	err := iter.dst.verifyOperationAndProofs("read", iter.Key(), nil,
-		WithIncrementOpsCounter(false),
+		// WithIncrementOpsCounter(false),
 		WithEnforceOpMatch(false),
 	)
 	if err != nil {

@@ -426,6 +426,7 @@ func (h *helper) iterate(startI, endI int, ascending bool, stopAfter int) (nVisi
 	// Set key-value pair in IAVL tree
 	itDST, err := h.dst.Iterator(start, end, ascending)
 	if err != nil {
+		err = fmt.Errorf("dst iterator init: %w", err)
 		return
 	}
 
@@ -435,7 +436,9 @@ func (h *helper) iterate(startI, endI int, ascending bool, stopAfter int) (nVisi
 		if stopAfter != 0 && stopAfter <= i {
 			break
 		}
+		fmt.Printf("pre dst valid\n")
 		valid := itDST.Valid()
+		fmt.Printf("post dst valid\n")
 		h.NoIteratorErrors() // check valid
 		if !valid {
 			break

@@ -235,7 +235,9 @@ func (iter *Iterator) Next() {
 	node, err := iter.t.next()
 	// TODO: double-check if this error is correctly handled.
 	if node == nil || err != nil {
-		fmt.Printf("iterator next error, setting to invalid: %v\n", err)
+		if err != nil {
+			fmt.Printf("iterator next error, setting to invalid: %v\n", err)
+		}
 		iter.t = nil
 		iter.valid = false
 		return

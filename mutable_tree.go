@@ -361,26 +361,68 @@ type TracingIterator struct {
 	tree *MutableTree
 }
 
-func (iter TracingIterator) Valid() bool {
-	iter.trace(func() []byte {
-		k := iter.Iterator.Key()
-		iter.Iterator.Valid()
-		return k
+func NewTracingIterator(tree *MutableTree, start, end []byte, ascending bool) (dbm.Iterator, error) {
+	ret := TracingIterator{tree: tree}
+
+	// TODO(danwt): need to clone? if it fails first time, try cloning, see what Manav did
+	ret.tree.ndb.keysAccessed = make(set.Set[string])
+
+	////////
+	// STUFF
+	iter, err := tree.ImmutableTree.Iterator(start, end, ascending)
+	////////
+
+	keysAccessed := ret.tree.ndb.keysAccessed.Values()
+
+	existenceProofs, err := ret.tree.reapExistenceProofs(keysAccessed)
+	if err != nil {
+		ret.tree.iterErrors = append(ret.tree.iterErrors, err)
+		return iter, err
+	}
+	// TODO(danwt): should not allow to continue if there are errors in the past
+	ret.tree.witnessData = append(ret.tree.witnessData, WitnessData{
+		Operation: "read",
+		Key:       nil,
+		Proofs:    existenceProofs,
 	})
+	return iter, nil
+}
+
+func (iter TracingIterator) Valid() bool {
+	// TODO(danwt): need to clone? if it fails first time, try cloning, see what Manav did
+	iter.tree.ndb.keysAccessed = make(set.Set[string])
+
+	////////
+	// STUFF
+	v := iter.Iterator.Valid()
+	////////
+
+	keysAccessed := iter.tree.ndb.keysAccessed.Values()
+
+	existenceProofs, err := iter.tree.reapExistenceProofs(keysAccessed)
+	if err != nil {
+		iter.tree.iterErrors = append(iter.tree.iterErrors, err)
+		return false // TODO:??
+	}
+	// TODO(danwt): should not allow to continue if there are errors in the past
+	iter.tree.witnessData = append(iter.tree.witnessData, WitnessData{
+		Operation: "read",
+		Key:       nil,
+		Proofs:    existenceProofs,
+	})
+	return v
 }
 
 func (iter TracingIterator) Next() {
-	iter.trace(func() []byte {
-		k := iter.Iterator.Key()
-		iter.Iterator.Next()
-		return k
-	})
-}
-
-func (iter TracingIterator) trace(f func() []byte) {
 	// TODO(danwt): need to clone? if it fails first time, try cloning, see what Manav did
 	iter.tree.ndb.keysAccessed = make(set.Set[string])
-	k := f()
+
+	////////
+	// STUFF
+	k := iter.Iterator.Key()
+	iter.Iterator.Next()
+	////////
+
 	keysAccessed := iter.tree.ndb.keysAccessed.Values()
 
 	existenceProofs, err := iter.tree.reapExistenceProofs(keysAccessed)
@@ -399,9 +441,6 @@ func (iter TracingIterator) trace(f func() []byte) {
 // Iterator returns an iterator over the mutable tree.
 // CONTRACT: no updates are made to the tree while an iterator is active.
 func (tree *MutableTree) Iterator(start, end []byte, ascending bool) (dbm.Iterator, error) {
-	var iter dbm.Iterator
-	var err error
-
 	if !tree.skipFastStorageUpgrade {
 		isFastCacheEnabled, err := tree.IsFastCacheEnabled()
 		if err != nil {
@@ -409,20 +448,17 @@ func (tree *MutableTree) Iterator(start, end []byte, ascending bool) (dbm.Iterat
 		}
 
 		if isFastCacheEnabled {
-			iter = NewUnsavedFastIterator(start, end, ascending, tree.ndb, tree.unsavedFastNodeAdditions, tree.unsavedFastNodeRemovals)
+			iter := NewUnsavedFastIterator(start, end, ascending, tree.ndb, tree.unsavedFastNodeAdditions, tree.unsavedFastNodeRemovals)
+			return iter, nil
 		}
 	}
 
-	if iter == nil {
-		iter, err = tree.ImmutableTree.Iterator(start, end, ascending)
-	}
-
 	if !tree.tracingEnabled {
-		return iter, err
+		return tree.ImmutableTree.Iterator(start, end, ascending)
 	}
 
 	// Proofs and witnesses are reaped as the iterator is used
-	return TracingIterator{iter, tree}, nil
+	return NewTracingIterator(tree, start, end, ascending)
 }
 
 func (tree *MutableTree) set(key []byte, value []byte) (orphans []*Node, updated bool, err error) {
