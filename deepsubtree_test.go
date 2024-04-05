@@ -218,27 +218,34 @@ func testWithRapid(t *rapid.T) {
 			rootHash, err := h.tree.WorkingHash()
 			h.NoError(err)
 
-			h.dst = NewDeepSubTree(db.NewMemDB(), cacheSize, true, 0)
+			h.dst = NewDeepSubTree(db.NewMemDB(), cacheSize, true, h.tree.version)
 			h.dst.SetInitialRootHash(h.tree.root.hash)
 
 			for _, kv := range keys.Values() {
-
 				proof, err := h.tree.GetMembershipProof(toBz(kv))
 				h.NoError(err)
 				err = h.dst.AddExistenceProofs([]*ics23.ExistenceProof{
 					proof.GetExist(),
 				}, rootHash)
 				h.NoError(err)
+			}
 
-				areEqual, err := haveEqualRoots(h.dst.MutableTree, h.tree)
-				h.NoError(err)
-				if !areEqual {
-					t.Fatal("oop", err)
-				}
+			areEqual, err := haveEqualRoots(h.dst.MutableTree, h.tree)
+			h.NoError(err)
+			if !areEqual {
+				t.Fatal("oop 1", err)
+			}
 
-				// TODO: why did celestia have this line? https://github.com/rollkit/iavl/blob/a84fef0584a3ca6df780a32d8245f5a582e40121/deepsubtree_test.go#L170
+			// TODO: why did celestia have this line? https://github.com/rollkit/iavl/blob/a84fef0584a3ca6df780a32d8245f5a582e40121/deepsubtree_test.go#L170
+			for _, kv := range keys.Values() {
 				err = h.set(kv, kv)
 				h.NoError(err)
+			}
+
+			areEqual, err = haveEqualRoots(h.dst.MutableTree, h.tree)
+			h.NoError(err)
+			if !areEqual {
+				t.Fatal("oop 2", err)
 			}
 		},
 	})
