@@ -99,7 +99,7 @@ func (t *traversal) next() (*Node, error) {
 	node, delayed := t.delayedNodes.pop()
 
 	if node != nil {
-		node.addTrace(t.tree, node.key) // TODO: necessary?
+		node.addTrace(t.tree, node.key)
 	}
 
 	// Already expanded, immediately return.
@@ -236,7 +236,8 @@ func (iter *Iterator) Next() {
 	// TODO: double-check if this error is correctly handled.
 	if node == nil || err != nil {
 		if err != nil {
-			fmt.Printf("iterator next error, setting to invalid: %v\n", err)
+			// TODO(danwt): This should be handled better.!!
+			fmt.Printf("iterator next() error, setting iterator to invalid: %v\n", err)
 		}
 		iter.t = nil
 		iter.valid = false
