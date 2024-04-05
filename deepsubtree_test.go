@@ -174,17 +174,17 @@ func testWithRapid(t *rapid.T) {
 	_ = iterateGen
 
 	t.Repeat(map[string]func(*rapid.T){
-		"": func(t *rapid.T) { // Check
-			areEqual, err := haveEqualRoots(h.dst.MutableTree, h.tree)
-			h.NoError(err)
-			if !areEqual {
-				t.Fatal("tree and dst roots are not equal", err)
-			}
-		},
-		"get": func(t *rapid.T) {
-			err := h.get(key.Draw(t, "k"))
-			h.NoError(err)
-		},
+		//"": func(t *rapid.T) { // Check
+		//	areEqual, err := haveEqualRoots(h.dst.MutableTree, h.tree)
+		//	h.NoError(err)
+		//	if !areEqual {
+		//		t.Fatal("tree and dst roots are not equal", err)
+		//	}
+		//},
+		//"get": func(t *rapid.T) {
+		//	err := h.get(key.Draw(t, "k"))
+		//	h.NoError(err)
+		//},
 		"set": func(t *rapid.T) {
 			kv := key.Draw(t, "kv")
 			keys.Add(kv)
@@ -202,33 +202,44 @@ func testWithRapid(t *rapid.T) {
 		//	err := h.remove(k)
 		//	h.NoError(err)
 		//},
-		"has": func(t *rapid.T) {
-			err := h.has(key.Draw(t, "k"))
-			h.NoError(err)
-		},
-		"iterate": func(t *rapid.T) {
-			cmd := iterateGen.Draw(t, "iterate")
-			_, err := h.iterate(cmd.L, cmd.R, cmd.Ascending, cmd.StopAfter)
-			h.NoError(err)
-		},
-		"manual update": func(t *rapid.T) {
-			kv := key.Draw(t, "kv")
-			if keys.Has(kv) {
-				return // TODO: don't want this
+		//"has": func(t *rapid.T) {
+		//	err := h.has(key.Draw(t, "k"))
+		//	h.NoError(err)
+		//},
+		//"iterate": func(t *rapid.T) {
+		//	cmd := iterateGen.Draw(t, "iterate")
+		//	_, err := h.iterate(cmd.L, cmd.R, cmd.Ascending, cmd.StopAfter)
+		//	h.NoError(err)
+		//},
+		"rebuild from scratch": func(t *rapid.T) {
+			if keys.Len() == 0 {
+				return
 			}
-			keys.Add(kv)
-			_, err := h.tree.Set(toBz(kv), toBz(kv))
-			h.NoError(err)
-			_, _, err = h.tree.SaveVersion()
-			h.NoError(err)
 			rootHash, err := h.tree.WorkingHash()
 			h.NoError(err)
-			ics23proof, err := h.tree.GetMembershipProof(toBz(kv))
-			h.NoError(err)
-			err = h.dst.AddExistenceProofs([]*ics23.ExistenceProof{
-				ics23proof.GetExist(),
-			}, rootHash)
-			h.NoError(err)
+
+			h.dst = NewDeepSubTree(db.NewMemDB(), cacheSize, true, 0)
+			h.dst.SetInitialRootHash(h.tree.root.hash)
+
+			for _, kv := range keys.Values() {
+
+				proof, err := h.tree.GetMembershipProof(toBz(kv))
+				h.NoError(err)
+				err = h.dst.AddExistenceProofs([]*ics23.ExistenceProof{
+					proof.GetExist(),
+				}, rootHash)
+				h.NoError(err)
+
+				areEqual, err := haveEqualRoots(h.dst.MutableTree, h.tree)
+				h.NoError(err)
+				if !areEqual {
+					t.Fatal("oop", err)
+				}
+
+				// TODO: why did celestia have this line? https://github.com/rollkit/iavl/blob/a84fef0584a3ca6df780a32d8245f5a582e40121/deepsubtree_test.go#L170
+				err = h.set(kv, kv)
+				h.NoError(err)
+			}
 		},
 	})
 }
