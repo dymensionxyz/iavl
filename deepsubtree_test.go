@@ -382,8 +382,15 @@ func (h *helper) iterate(startI, endI int, ascending bool, stopAfter int) (nVisi
 	// TODO: do I need an operation for New()?
 
 	i := 0
-	for itTree.Valid() && (stopAfter == 0 || i < stopAfter) {
+	for {
+		if stopAfter != 0 && stopAfter <= i {
+			break
+		}
+		valid := itTree.Valid()
 		h.NoIteratorErrors() // check valid
+		if !valid {
+			break
+		}
 
 		i++
 		s, e := itTree.Domain()
@@ -415,8 +422,16 @@ func (h *helper) iterate(startI, endI int, ascending bool, stopAfter int) (nVisi
 	}
 
 	i = 0
-	for itDST.Valid() && (stopAfter == 0 || i < stopAfter) {
+
+	for {
+		if stopAfter != 0 && stopAfter <= i {
+			break
+		}
+		valid := itDST.Valid()
 		h.NoIteratorErrors() // check valid
+		if !valid {
+			break
+		}
 		s, e := itDST.Domain()
 		k := itDST.Key()
 		v := itDST.Value()
@@ -438,8 +453,6 @@ func (h *helper) iterate(startI, endI int, ascending bool, stopAfter int) (nVisi
 		itDST.Next()
 		h.NoIteratorErrors() // check next
 	}
-
-	h.NoIteratorErrors()
 
 	if i != len(results) {
 		return 0, fmt.Errorf("valid cnt mismatch: expect %d: got %d", len(results), i)
