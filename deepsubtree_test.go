@@ -212,6 +212,11 @@ func testWithRapid(t *rapid.T) {
 			h.NoError(err)
 		},
 		"rebuild from scratch": func(t *rapid.T) {
+			/*
+				For some reason this reveals an error if followed up by remove and then get
+				I WAS able to replicate it on manavs branch
+			*/
+
 			if keys.Len() == 0 {
 				return
 			}
