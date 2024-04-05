@@ -67,8 +67,9 @@ func NewMutableTreeWithOpts(db dbm.DB, cacheSize int, opts *Options, skipFastSto
 		unsavedFastNodeRemovals:  make(map[string]interface{}),
 		ndb:                      ndb,
 		skipFastStorageUpgrade:   skipFastStorageUpgrade,
-		witnessData:              make([]WitnessData, 0),
 		tracingEnabled:           false,
+		witnessData:              make([]WitnessData, 0),
+		iterErrors:               make([]error, 0),
 	}, nil
 }
 
@@ -410,7 +411,7 @@ func (tree *MutableTree) Iterator(start, end []byte, ascending bool) (dbm.Iterat
 	}
 
 	// Proofs and witnesses are reaped as the iterator is used
-	return TracingIterator{iter, tree, nil}, nil
+	return TracingIterator{iter, tree}, nil
 }
 
 func (tree *MutableTree) set(key []byte, value []byte) (orphans []*Node, updated bool, err error) {

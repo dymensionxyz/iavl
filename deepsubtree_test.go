@@ -439,6 +439,8 @@ func (h *helper) iterate(startI, endI int, ascending bool, stopAfter int) (nVisi
 		h.NoIteratorErrors() // check next
 	}
 
+	h.NoIteratorErrors()
+
 	if i != len(results) {
 		return 0, fmt.Errorf("valid cnt mismatch: expect %d: got %d", len(results), i)
 	}
