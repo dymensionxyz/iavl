@@ -150,12 +150,6 @@ type verificationOptions struct {
 
 type VerificationOption func(*verificationOptions)
 
-func WithIncrementOpsCounter(increment bool) VerificationOption {
-	return func(opts *verificationOptions) {
-		opts.incrementOpsCounter = increment
-	}
-}
-
 func WithEnforceOpMatch(enforce bool) VerificationOption {
 	return func(opts *verificationOptions) {
 		opts.enforceOpMatch = enforce
@@ -373,15 +367,12 @@ type VerifyingIterator struct {
 }
 
 func NewVerifyingIterator(dst *DeepSubTree, start, end []byte, ascending bool) (dbm.Iterator, error) {
-	fmt.Printf("pre constructor - pre verify\n")
 	err := dst.verifyOperationAndProofs("read", nil, nil,
-		// WithIncrementOpsCounter(false),
 		WithEnforceOpMatch(false),
 	)
 	if err != nil {
 		return nil, err
 	}
-	fmt.Printf("pre constructor - post verify\n")
 	iter, err := dst.ImmutableTree.Iterator(start, end, ascending)
 	if err != nil {
 		return nil, fmt.Errorf("immutable tree iterator: %w", err)

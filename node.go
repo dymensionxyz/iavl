@@ -470,7 +470,6 @@ func (node *Node) addTrace(t *ImmutableTree, key []byte) {
 	if t == nil || t.ndb == nil {
 		return
 	}
-	fmt.Printf("addTrace: %s\n", key)
 	t.ndb.addTrace(key)
 }
 
@@ -569,6 +568,8 @@ var (
 // nolint: unused
 // Prints a Deep Subtree recursively.
 // Modified version of printNode from util.go
+// all - even print nodes that are not loaded in memory already (*Node)?
+// disk - was this node loaded from the node db?
 func printN(ndb *nodeDB, node *Node, indent int, all bool, disk bool) error {
 	indentPrefix := strings.Repeat("    ", indent)
 

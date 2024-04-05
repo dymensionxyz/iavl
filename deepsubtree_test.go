@@ -123,42 +123,6 @@ func bootstrap(f fatalf) *helper {
 	return &h
 }
 
-func TestReplicate(t *testing.T) {
-	t.Run("foo", func(t *testing.T) {
-		h := bootstrap(t)
-
-		iterate := true
-
-		_ = h
-		for _, i := range []int{
-			0, 1, 5, 6, 3, 4, 2,
-		} {
-
-			fmt.Printf("\n\nset %d\n", i)
-			require.NoError(t, h.set(i, i))
-			fmt.Printf("tree:\n")
-			printN(h.tree.ndb, h.tree.root, 0, true, false)
-			fmt.Printf("\ndst:\n")
-			printN(h.dst.ndb, h.dst.root, 0, true, false)
-		}
-
-		var err error
-		if iterate {
-			fmt.Printf("\n\niterate\n")
-			_, err = h.iterate(0, 1, true, 0)
-		} else {
-			fmt.Printf("\n\nget 0\n")
-			err = h.get(0)
-		}
-
-		fmt.Printf("tree:\n")
-		printN(h.tree.ndb, h.tree.root, 0, true, false)
-		fmt.Printf("\ndst:\n")
-		printN(h.dst.ndb, h.dst.root, 0, true, false)
-		require.NoError(t, err)
-	})
-}
-
 func FuzzPropertyBased(f *testing.F) {
 	// TODO: sanity check that it works
 	f.Fuzz(rapid.MakeFuzz(testWithRapid))
@@ -259,7 +223,6 @@ func (h *helper) set(keyI, valueI int) error {
 	key := toBz(keyI)
 	value := toBz(valueI)
 	// Set key-value pair in IAVL tree
-	fmt.Printf("set tree\n")
 	_, err := h.tree.Set(key, value)
 	if err != nil {
 		return err
@@ -267,7 +230,6 @@ func (h *helper) set(keyI, valueI int) error {
 	_, _, err = h.tree.SaveVersion()
 	h.NoError(err)
 	witness := h.tree.witnessData[len(h.tree.witnessData)-1]
-	fmt.Printf("set dst\n")
 	h.dst.SetWitnessData([]WitnessData{witness})
 
 	// Set key-value pair in DST
@@ -371,7 +333,6 @@ func (h *helper) iterate(startI, endI int, ascending bool, stopAfter int) (nVisi
 	l := len(h.tree.witnessData)
 
 	// Set key-value pair in IAVL tree
-	fmt.Printf("iterate tree\n")
 	itTree, err := h.tree.Iterator(start, end, ascending)
 	if err != nil {
 		return
@@ -420,9 +381,6 @@ func (h *helper) iterate(startI, endI int, ascending bool, stopAfter int) (nVisi
 	itTreeCloseErr := itTree.Close()
 	h.dst.SetWitnessData(slices.Clone(h.tree.witnessData[l:])) // TODO: need clone?
 
-	fmt.Printf("results: %+v\n", results)
-	fmt.Printf("iterate dst\n")
-
 	// Set key-value pair in IAVL tree
 	itDST, err := h.dst.Iterator(start, end, ascending)
 	if err != nil {
@@ -436,14 +394,11 @@ func (h *helper) iterate(startI, endI int, ascending bool, stopAfter int) (nVisi
 		if stopAfter != 0 && stopAfter <= i {
 			break
 		}
-		fmt.Printf("pre valid() call\n")
 		valid := itDST.Valid()
-		fmt.Printf("pre valid() err check\n")
 		h.NoIteratorErrors() // check valid
 		if !valid {
 			break
 		}
-		fmt.Printf("post valid() err check\n")
 		s, e := itDST.Domain()
 		k := itDST.Key()
 		v := itDST.Value()
@@ -462,11 +417,8 @@ func (h *helper) iterate(startI, endI int, ascending bool, stopAfter int) (nVisi
 		if !errors.Is(r.err, err) || !errors.Is(err, r.err) { // TODO: makes sense?
 			return 0, fmt.Errorf("error mismatch")
 		}
-		fmt.Printf("pre next() call\n")
 		itDST.Next()
-		fmt.Printf("pre next() err check\n")
 		h.NoIteratorErrors() // check next
-		fmt.Printf("post next() err check\n")
 	}
 
 	if i != len(results) {
