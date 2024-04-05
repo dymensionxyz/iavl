@@ -208,9 +208,6 @@ func testWithRapid(t *rapid.T) {
 		},
 		"iterate": func(t *rapid.T) {
 			cmd := iterateGen.Draw(t, "iterate")
-			if cmd.L > cmd.R {
-				return
-			}
 			_, err := h.iterate(cmd.L, cmd.R, cmd.Ascending, cmd.StopAfter)
 			h.NoError(err)
 		},
