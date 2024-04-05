@@ -135,17 +135,21 @@ func TestReplicate(t *testing.T) {
 			fmt.Printf("\nset%d\n", i)
 			require.NoError(t, h.set(i, i))
 			fmt.Printf("tree:\n")
-			printN(h.tree.root, 0, true, h.tree.ndb)
+			printN(h.tree.ndb, h.tree.root, 0, true, false)
 			fmt.Printf("\ndst:\n")
-			printN(h.dst.root, 0, true, h.dst.ndb)
+			printN(h.dst.ndb, h.dst.root, 0, true, false)
 		}
 		fmt.Printf("\niterate\n")
 		_, err := h.iterate(0, 1, true, 0)
 
+		ans, err := h.dst.get(toBz(2))
+		require.NoError(t, err)
+		require.Equal(t, toBz(2), ans)
+
 		fmt.Printf("tree:\n")
-		printN(h.tree.root, 0, true, h.tree.ndb)
+		printN(h.tree.ndb, h.tree.root, 0, true, false)
 		fmt.Printf("\ndst:\n")
-		printN(h.dst.root, 0, false, h.dst.ndb)
+		printN(h.dst.ndb, h.dst.root, 0, false, false)
 
 		require.NoError(t, err)
 	})

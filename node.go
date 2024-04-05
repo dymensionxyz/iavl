@@ -569,7 +569,7 @@ var (
 // nolint: unused
 // Prints a Deep Subtree recursively.
 // Modified version of printNode from util.go
-func printN(node *Node, indent int, all bool, ndb *nodeDB) error {
+func printN(ndb *nodeDB, node *Node, indent int, all bool, disk bool) error {
 	indentPrefix := strings.Repeat("    ", indent)
 
 	if node == nil {
@@ -577,7 +577,7 @@ func printN(node *Node, indent int, all bool, ndb *nodeDB) error {
 		return nil
 	}
 	if node.rightNode != nil {
-		err := printN(node.rightNode, indent+1, all, ndb)
+		err := printN(ndb, node.rightNode, indent+1, all, false)
 		if err != nil {
 			return err
 		}
@@ -586,7 +586,7 @@ func printN(node *Node, indent int, all bool, ndb *nodeDB) error {
 		if err != nil {
 			return err
 		}
-		err = printN(n, indent+1, all, ndb)
+		err = printN(ndb, n, indent+1, all, true)
 		if err != nil {
 			return err
 		}
@@ -597,14 +597,18 @@ func printN(node *Node, indent int, all bool, ndb *nodeDB) error {
 		return err
 	}
 
-	fmt.Printf("%sh:%x", indentPrefix, hash)
+	c := "M"
+	if disk {
+		c = "D"
+	}
+	fmt.Printf("%s%s:%x", indentPrefix, c, hash[:4])
 	if node.isLeaf() {
 		fmt.Printf("%s%s:%s (%v)", indentPrefix, node.key, node.value, node.height)
 	}
 	fmt.Printf("\n")
 
 	if node.leftNode != nil {
-		err := printN(node.leftNode, indent+1, all, ndb)
+		err := printN(ndb, node.leftNode, indent+1, all, false)
 		if err != nil {
 			return err
 		}
@@ -613,7 +617,7 @@ func printN(node *Node, indent int, all bool, ndb *nodeDB) error {
 		if err != nil {
 			return err
 		}
-		err = printN(n, indent+1, all, ndb)
+		err = printN(ndb, n, indent+1, all, true)
 		if err != nil {
 			return err
 		}
