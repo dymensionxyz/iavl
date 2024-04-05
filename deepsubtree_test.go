@@ -130,7 +130,7 @@ func testWithRapid(t *rapid.T) {
 		},
 		"rebuild from scratch": func(t *rapid.T) {
 			/*
-				For some reason this reveals an error if followed up by remove and then get
+				TODO: For some reason this reveals an error if followed up by remove and then get
 				I WAS able to replicate it on manavs branch
 			*/
 
@@ -166,7 +166,14 @@ func testWithRapid(t *rapid.T) {
 		"remove",
 		"has",
 		"iterate",
-		//"rebuild from scratch",
+		//"rebuild from scratch", TODO:
+
+		/*
+			Where's my thinking for Monday?
+			Probably should investigate the rebuild error
+			Also need to make Remove() work with unknown keys
+			Then it will be time to test with dymint, and a custom TX to use all ops
+		*/
 	)
 	t.Repeat(ops)
 }
