@@ -243,6 +243,7 @@ func testWithRapid(t *rapid.T) {
 		},
 	}
 	Pick(ops,
+		"",
 		"get",
 		"set",
 		"remove",
