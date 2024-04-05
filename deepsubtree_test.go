@@ -247,6 +247,7 @@ func (h *helper) set(keyI, valueI int) error {
 	key := toBz(keyI)
 	value := toBz(valueI)
 	// Set key-value pair in IAVL tree
+	fmt.Printf("set tree\n")
 	_, err := h.tree.Set(key, value)
 	if err != nil {
 		return err
@@ -254,6 +255,7 @@ func (h *helper) set(keyI, valueI int) error {
 	_, _, err = h.tree.SaveVersion()
 	h.NoError(err)
 	witness := h.tree.witnessData[len(h.tree.witnessData)-1]
+	fmt.Printf("set dst\n")
 	h.dst.SetWitnessData([]WitnessData{witness})
 
 	// Set key-value pair in DST
@@ -357,6 +359,7 @@ func (h *helper) iterate(startI, endI int, ascending bool, stopAfter int) (nVisi
 	l := len(h.tree.witnessData)
 
 	// Set key-value pair in IAVL tree
+	fmt.Printf("iterate tree")
 	itTree, err := h.tree.Iterator(start, end, ascending)
 	if err != nil {
 		return
@@ -397,6 +400,9 @@ func (h *helper) iterate(startI, endI int, ascending bool, stopAfter int) (nVisi
 	itTreeCloseErr := itTree.Close()
 
 	h.dst.SetWitnessData(slices.Clone(h.tree.witnessData[l:])) // TODO: need clone?
+
+	fmt.Printf("results: %+v\n", results)
+	fmt.Printf("iterate dst")
 
 	// Set key-value pair in IAVL tree
 	itDST, err := h.dst.Iterator(start, end, ascending)

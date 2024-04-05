@@ -469,6 +469,7 @@ func (node *Node) addTrace(t *ImmutableTree, key []byte) {
 	if t == nil || t.ndb == nil {
 		return
 	}
+	fmt.Printf("addTrace: %s\n", key)
 	t.ndb.addTrace(key)
 }
 
