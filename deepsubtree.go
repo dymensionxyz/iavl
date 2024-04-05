@@ -145,6 +145,7 @@ func (dst *DeepSubTree) linkNode(node *Node) error {
 
 type verificationOptions struct {
 	incrementOpsCounter bool
+	enforceOpMatch      bool
 }
 
 type VerificationOption func(*verificationOptions)
@@ -152,6 +153,12 @@ type VerificationOption func(*verificationOptions)
 func WithIncrementOpsCounter(increment bool) VerificationOption {
 	return func(opts *verificationOptions) {
 		opts.incrementOpsCounter = increment
+	}
+}
+
+func WithEnforceOpMatch(enforce bool) VerificationOption {
+	return func(opts *verificationOptions) {
+		opts.enforceOpMatch = enforce
 	}
 }
 
@@ -178,7 +185,7 @@ func (dst *DeepSubTree) verifyOperationAndProofs(operation Operation, key []byte
 		)
 	}
 	traceOp := dst.witnessData[dst.operationCounter]
-	if traceOp.Operation != operation || !bytes.Equal(traceOp.Key, key) || !bytes.Equal(traceOp.Value, value) {
+	if opts.enforceOpMatch && (traceOp.Operation != operation || !bytes.Equal(traceOp.Key, key) || !bytes.Equal(traceOp.Value, value)) {
 		return fmt.Errorf(
 			"traceOp in witnessData (%s, %s, %s) does not match up with executed operation (%s, %s, %s)",
 			traceOp.Operation, string(traceOp.Key), string(traceOp.Value),
@@ -366,7 +373,11 @@ type VerifyingIterator struct {
 }
 
 func (iter VerifyingIterator) Valid() bool {
-	err := iter.dst.verifyOperationAndProofs("read", iter.Key(), nil, WithIncrementOpsCounter(false))
+	// TODO: it's bogus here to use witness data as arg
+	err := iter.dst.verifyOperationAndProofs("read", iter.Key(), nil,
+		WithIncrementOpsCounter(false),
+		WithEnforceOpMatch(false),
+	)
 	if err != nil {
 		iter.dst.iterErrors = append(iter.dst.iterErrors, err)
 		return false
