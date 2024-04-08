@@ -180,7 +180,7 @@ func (h *helper) set(keyI, valueI int) error {
 	key := toBz(keyI)
 	value := toBz(valueI)
 
-	_, err := h.tree.Set(key, value)
+	expect, err := h.tree.Set(key, value)
 	if err != nil {
 		return err
 	}
@@ -189,12 +189,16 @@ func (h *helper) set(keyI, valueI int) error {
 
 	h.copyWitnessData(1)
 
-	_, err = h.dst.Set(key, value)
+	got, err := h.dst.Set(key, value)
 	if err != nil {
 		return err
 	}
 	_, _, err = h.dst.SaveVersion()
 	h.NoError(err)
+
+	if expect != got {
+		return fmt.Errorf("mismatch: key: %d: expect: %t: got: %t", keyI, expect, got)
+	}
 
 	return nil
 }
@@ -216,7 +220,7 @@ func (h *helper) get(keyI int) error {
 		return fmt.Errorf("dst get: %w", err)
 	}
 	if !bytes.Equal(expect, got) {
-		return fmt.Errorf("get mismatch: key: %x: expect %x: got: %x", key, expect, got)
+		return fmt.Errorf("mismatch: key: %x: expect %x: got: %x", key, expect, got)
 	}
 
 	return nil
@@ -252,7 +256,28 @@ func (h *helper) remove(keyI int) error {
 	}
 
 	if !bytes.Equal(expectVal, gotVal) {
-		return fmt.Errorf("remove mismatch: key: %d: expectVal: %x: gotVal: %x", keyI, expectVal, gotVal)
+		/*
+				TODO: what was I doing? Trying to fix this weird remove bug
+			   deepsubtree_test.go:69: [rapid] fail file "testdata/rapid/TestPropertyBased/TestPropertyBased-20240405121456-15281.fail" is no longer valid
+			    deepsubtree_test.go:69: [rapid] fail file "testdata/rapid/TestPropertyBased/TestPropertyBased-20240405122355-17556.fail" is no longer valid
+			    deepsubtree_test.go:69: [rapid] failed after 0 tests: remove mismatch: key: 1: expectVal: [49]: gotVal: []
+			        To reproduce, specify -run="TestPropertyBased" -rapid.failfile="testdata/rapid/TestPropertyBased/TestPropertyBased-20240405122422-17661.fail"
+			        Failed test output:
+			    deepsubtree_test.go:174: [rapid] draw action: "set"
+			    deepsubtree_test.go:106: [rapid] draw kv: 0
+			    deepsubtree_test.go:174: [rapid] draw action: "set"
+			    deepsubtree_test.go:106: [rapid] draw kv: 2
+			    deepsubtree_test.go:174: [rapid] draw action: "set"
+			    deepsubtree_test.go:106: [rapid] draw kv: 1
+			    deepsubtree_test.go:174: [rapid] draw action: "set"
+			    deepsubtree_test.go:106: [rapid] draw kv: -1
+			    deepsubtree_test.go:174: [rapid] draw action: "set"
+			    deepsubtree_test.go:106: [rapid] draw kv: -1
+			    deepsubtree_test.go:174: [rapid] draw action: "remove"
+			    deepsubtree_test.go:115: [rapid] draw k: 1
+			    deepsubtree_test.go:425: remove mismatch: key: 1: expectVal: [49]: gotVal: []
+		*/
+		return fmt.Errorf("remove mismatch: key: %d: expectVal: %d: gotVal: %d", keyI, expectVal, gotVal)
 	}
 
 	return nil
