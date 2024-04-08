@@ -108,12 +108,15 @@ func testWithRapid(t *rapid.T) {
 			err := h.set(kv, kv)
 			h.NoError(err)
 		},
+		/*
+			TODO: remove seems to cause some problems in conjunction with rebuild-from-scratch
+		*/
 		"remove": func(t *rapid.T) {
 			k := key.Draw(t, "k")
-			if !keys.Has(k) {
-				t.Logf("noop remove")
-				return
-			}
+			//if !keys.Has(k) {
+			//	t.Logf("noop remove")
+			//	return
+			//}
 			keys.Delete(k)
 			// TODO: remove should be useable without the key present
 			err := h.remove(k)
@@ -166,14 +169,7 @@ func testWithRapid(t *rapid.T) {
 		"remove",
 		"has",
 		"iterate",
-		//"rebuild from scratch", TODO:
-
-		/*
-			Where's my thinking for Monday?
-			Probably should investigate the rebuild error
-			Also need to make Remove() work with unknown keys
-			Then it will be time to test with dymint, and a custom TX to use all ops
-		*/
+		//"rebuild from scratch",
 	)
 	t.Repeat(ops)
 }
@@ -183,17 +179,16 @@ func testWithRapid(t *rapid.T) {
 func (h *helper) set(keyI, valueI int) error {
 	key := toBz(keyI)
 	value := toBz(valueI)
-	// Set key-value pair in IAVL tree
+
 	_, err := h.tree.Set(key, value)
 	if err != nil {
 		return err
 	}
 	_, _, err = h.tree.SaveVersion()
 	h.NoError(err)
-	witness := h.tree.witnessData[len(h.tree.witnessData)-1]
-	h.dst.SetWitnessData([]WitnessData{witness})
 
-	// Set key-value pair in DST
+	h.copyWitnessData(1)
+
 	_, err = h.dst.Set(key, value)
 	if err != nil {
 		return err
@@ -213,8 +208,8 @@ func (h *helper) get(keyI int) error {
 	if err != nil {
 		return fmt.Errorf("tree get: %w", err)
 	}
-	witness := h.tree.witnessData[len(h.tree.witnessData)-1]
-	h.dst.SetWitnessData([]WitnessData{witness})
+
+	h.copyWitnessData(1)
 
 	got, err := h.dst.Get(key)
 	if err != nil {
@@ -232,16 +227,15 @@ func (h *helper) get(keyI int) error {
 func (h *helper) remove(keyI int) error {
 	key := toBz(keyI)
 
-	// Set key-value pair in IAVL tree
 	_, _, err := h.tree.Remove(key)
 	if err != nil {
 		return err
 	}
+
 	_, _, err = h.tree.SaveVersion()
 	h.NoError(err)
 
-	witness := h.tree.witnessData[len(h.tree.witnessData)-1]
-	h.dst.SetWitnessData([]WitnessData{witness})
+	h.copyWitnessData(1)
 
 	_, removed, err := h.dst.Remove(key)
 	if err != nil {
@@ -265,8 +259,8 @@ func (h *helper) has(keyI int) error {
 	if err != nil {
 		return fmt.Errorf("tree has: %w", err)
 	}
-	witness := h.tree.witnessData[len(h.tree.witnessData)-1]
-	h.dst.SetWitnessData([]WitnessData{witness})
+
+	h.copyWitnessData(1)
 
 	got, err := h.dst.Has(key)
 	if err != nil {
@@ -317,7 +311,7 @@ func (h *helper) iterate(startI, endI int, ascending bool, stopAfter int) (nVisi
 			break
 		}
 		valid := itTree.Valid()
-		h.NoIteratorErrors() // check valid
+		h.NoErrorIterators() // check valid
 		if !valid {
 			break
 		}
@@ -336,11 +330,12 @@ func (h *helper) iterate(startI, endI int, ascending bool, stopAfter int) (nVisi
 			err:   err,
 		})
 		itTree.Next()
-		h.NoIteratorErrors() // check next
+		h.NoErrorIterators() // check next
 	}
 
 	itTreeCloseErr := itTree.Close()
-	h.dst.SetWitnessData(slices.Clone(h.tree.witnessData[l:])) // TODO: need clone?
+
+	h.copyWitnessData(len(h.tree.witnessData) - l)
 
 	// Set key-value pair in IAVL tree
 	itDST, err := h.dst.Iterator(start, end, ascending)
@@ -356,7 +351,7 @@ func (h *helper) iterate(startI, endI int, ascending bool, stopAfter int) (nVisi
 			break
 		}
 		valid := itDST.Valid()
-		h.NoIteratorErrors() // check valid
+		h.NoErrorIterators() // check valid
 		if !valid {
 			break
 		}
@@ -379,7 +374,7 @@ func (h *helper) iterate(startI, endI int, ascending bool, stopAfter int) (nVisi
 			return 0, fmt.Errorf("error mismatch")
 		}
 		itDST.Next()
-		h.NoIteratorErrors() // check next
+		h.NoErrorIterators() // check next
 	}
 
 	if i != len(results) {
@@ -405,13 +400,18 @@ type helper struct {
 	dst  *DeepSubTree
 }
 
+func (h *helper) copyWitnessData(n int) {
+	// TODO: clone necessary?
+	h.dst.SetWitnessData(slices.Clone(h.tree.witnessData[len(h.tree.witnessData)-n:]))
+}
+
 func (h *helper) NoError(err error) {
 	if err != nil {
 		h.f.Fatalf("%v", err)
 	}
 }
 
-func (h *helper) NoIteratorErrors() {
+func (h *helper) NoErrorIterators() {
 	errs := slices.Clone(h.tree.iterErrors)
 	errs = append(errs, h.dst.iterErrors...)
 	if 0 < len(errs) {

@@ -530,8 +530,12 @@ func (tree *MutableTree) recursiveSet(node *Node, key []byte, value []byte, orph
 }
 
 // Wrapper around removeOp to add operation related data to the tree's witness data
-// when tracing is enabled
+// when tracing is enabled. If removed, returns the value, and true.
 func (tree *MutableTree) Remove(key []byte) ([]byte, bool, error) {
+	if tree.root == nil {
+		// TODO: double check this is ok
+		return nil, false, nil
+	}
 	if !tree.tracingEnabled {
 		return tree.removeOp(key)
 	}
