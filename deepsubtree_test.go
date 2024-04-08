@@ -227,7 +227,7 @@ func (h *helper) get(keyI int) error {
 func (h *helper) remove(keyI int) error {
 	key := toBz(keyI)
 
-	_, _, err := h.tree.Remove(key)
+	expectVal, expectWasRemoved, err := h.tree.Remove(key)
 	if err != nil {
 		return err
 	}
@@ -235,17 +235,25 @@ func (h *helper) remove(keyI int) error {
 	_, _, err = h.tree.SaveVersion()
 	h.NoError(err)
 
-	h.copyWitnessData(1)
+	if expectWasRemoved {
+		h.copyWitnessData(1)
+	}
 
-	_, removed, err := h.dst.Remove(key)
+	gotVal, gotWasRemoved, err := h.dst.Remove(key)
 	if err != nil {
 		return err
 	}
-	if !removed {
-		return fmt.Errorf("remove key from dst: %d", key)
-	}
+
 	_, _, err = h.dst.SaveVersion()
 	h.NoError(err)
+
+	if expectWasRemoved != gotWasRemoved {
+		return fmt.Errorf("remove mismatch: key: %d: expectWasRemoved: %t: gotWasRemoved: %t", keyI, expectWasRemoved, gotWasRemoved)
+	}
+
+	if !bytes.Equal(expectVal, gotVal) {
+		return fmt.Errorf("remove mismatch: key: %d: expectVal: %x: gotVal: %x", keyI, expectVal, gotVal)
+	}
 
 	return nil
 }

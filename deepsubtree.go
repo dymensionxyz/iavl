@@ -391,6 +391,10 @@ func (iter VerifyingIterator) Next() {
 
 // Remove verifies the Remove operation with witness data and perform the given delete operation
 func (dst *DeepSubTree) Remove(key []byte) (value []byte, removed bool, err error) {
+	if dst.root == nil {
+		// TODO: is this fully justified? a bit messy...
+		return nil, false, nil
+	}
 	err = dst.verifyOperationAndProofs("delete", key, nil)
 	if err != nil {
 		return nil, false, err
