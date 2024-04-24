@@ -157,7 +157,6 @@ func (pln ProofLeafNode) Hash() ([]byte, error) {
 	_, err = hasher.Write(buf.Bytes())
 	if err != nil {
 		return nil, err
-
 	}
 
 	return hasher.Sum(nil), nil
@@ -174,6 +173,8 @@ func (node *Node) PathToLeaf(t *ImmutableTree, key []byte) (PathToLeaf, *Node, e
 	return *path, val, err
 }
 
+var errKeyDoesNotExist = errors.New("key does not exist")
+
 // pathToLeaf is a helper which recursively constructs the PathToLeaf.
 // As an optimization the already constructed path is passed in as an argument
 // and is shared among recursive calls.
@@ -182,7 +183,7 @@ func (node *Node) pathToLeaf(t *ImmutableTree, key []byte, path *PathToLeaf) (*N
 		if bytes.Equal(node.key, key) {
 			return node, nil
 		}
-		return node, errors.New("key does not exist")
+		return node, errKeyDoesNotExist
 	}
 
 	// Note that we do not store the left child in the ProofInnerNode when we're going to add the
