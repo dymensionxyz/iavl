@@ -111,14 +111,24 @@ func testWithRapid(t *rapid.T) {
 		/*
 			TODO: remove seems to cause some problems in conjunction with rebuild-from-scratch
 		*/
-		"remove": func(t *rapid.T) {
-			k := key.Draw(t, "k")
-			//if !keys.Has(k) {
-			//	t.Logf("noop remove")
-			//	return
-			//}
+		"remove existing": func(t *rapid.T) {
+			if keys.Len() == 0 {
+				return
+			}
+			drawFrom := keys
+			k := rapid.SampledFrom(drawFrom.Values()).Draw(t, "k")
 			keys.Delete(k)
-			// TODO: remove should be useable without the key present
+			err := h.remove(k)
+			h.NoError(err)
+		},
+		"remove absent": func(t *rapid.T) {
+			drawFrom := set.Set[int]{}
+			for i := 0; i < 100; i++ {
+				drawFrom.Add(i)
+			}
+			drawFrom = drawFrom.Difference(keys) // all the keys that are not in the tree already
+			k := rapid.SampledFrom(drawFrom.Values()).Draw(t, "k")
+			keys.Delete(k)
 			err := h.remove(k)
 			h.NoError(err)
 		},
@@ -166,7 +176,8 @@ func testWithRapid(t *rapid.T) {
 		"",
 		"get",
 		"set",
-		"remove",
+		"remove existing",
+		"remove absent",
 		"has",
 		"iterate",
 		//"rebuild from scratch",
