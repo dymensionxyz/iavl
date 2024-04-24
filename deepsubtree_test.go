@@ -69,6 +69,11 @@ func TestPropertyBased(t *testing.T) {
 	rapid.Check(t, testWithRapid)
 }
 
+/*
+Gameplan:
+I need to resolve the rest of the issues with remove and rebuild from scratch
+I should create a TX to test everything out on chain, to check things for real
+*/
 func testWithRapid(t *rapid.T) {
 	h := bootstrap(t)
 
