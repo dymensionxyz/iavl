@@ -114,9 +114,31 @@ func testWithRapid(t *rapid.T) {
 			h.NoError(err)
 		},
 		/*
-			TODO: remove seems to cause some problems in conjunction with rebuild-from-scratch
+			TODO: remove (both kinds) seems to cause some problems in conjunction with rebuild-from-scratch
 		*/
 		"remove existing": func(t *rapid.T) {
+			/*
+				TODO: there is some kind of problem with the returned value being wrong
+				   I should try to see if it's on Manav's branch.
+				   deepsubtree_test.go:69: [rapid] fail file "testdata/rapid/TestPropertyBased/TestPropertyBased-20240405121456-15281.fail" is no longer valid
+					deepsubtree_test.go:69: [rapid] fail file "testdata/rapid/TestPropertyBased/TestPropertyBased-20240405122355-17556.fail" is no longer valid
+					deepsubtree_test.go:69: [rapid] failed after 0 tests: remove mismatch: key: 0: expectVal: [48]: gotVal: []
+						To reproduce, specify -run="TestPropertyBased" -rapid.failfile="testdata/rapid/TestPropertyBased/TestPropertyBased-20240405122422-17661.fail"
+						Failed test output:
+					deepsubtree_test.go:185: [rapid] draw action: "set"
+					deepsubtree_test.go:106: [rapid] draw kv: 0
+					deepsubtree_test.go:185: [rapid] draw action: "set"
+					deepsubtree_test.go:106: [rapid] draw kv: 2
+					deepsubtree_test.go:185: [rapid] draw action: "set"
+					deepsubtree_test.go:106: [rapid] draw kv: 1
+					deepsubtree_test.go:185: [rapid] draw action: "set"
+					deepsubtree_test.go:106: [rapid] draw kv: -1
+					deepsubtree_test.go:185: [rapid] draw action: "set"
+					deepsubtree_test.go:106: [rapid] draw kv: -1
+					deepsubtree_test.go:185: [rapid] draw action: "remove existing"
+					deepsubtree_test.go:119: [rapid] draw k: 1
+					deepsubtree_test.go:458: remove mismatch: key: 1: expectVal: [49]: gotVal: []
+			*/
 			if keys.Len() == 0 {
 				return
 			}
@@ -178,6 +200,7 @@ func testWithRapid(t *rapid.T) {
 		},
 	}
 	Pick(ops,
+		// TODO: make sure all ops present in final commit
 		"",
 		"get",
 		"set",
@@ -276,28 +299,6 @@ func (h *helper) remove(keyI int) error {
 	}
 
 	if !bytes.Equal(expectVal, gotVal) {
-		/*
-			TODO: what was I doing? Getting this weird bug with remove existing. I should try to see if it's on Manav's branch.
-
-			   deepsubtree_test.go:69: [rapid] fail file "testdata/rapid/TestPropertyBased/TestPropertyBased-20240405121456-15281.fail" is no longer valid
-			    deepsubtree_test.go:69: [rapid] fail file "testdata/rapid/TestPropertyBased/TestPropertyBased-20240405122355-17556.fail" is no longer valid
-			    deepsubtree_test.go:69: [rapid] failed after 0 tests: remove mismatch: key: 0: expectVal: [48]: gotVal: []
-			        To reproduce, specify -run="TestPropertyBased" -rapid.failfile="testdata/rapid/TestPropertyBased/TestPropertyBased-20240405122422-17661.fail"
-			        Failed test output:
-			    deepsubtree_test.go:185: [rapid] draw action: "set"
-			    deepsubtree_test.go:106: [rapid] draw kv: 0
-			    deepsubtree_test.go:185: [rapid] draw action: "set"
-			    deepsubtree_test.go:106: [rapid] draw kv: 2
-			    deepsubtree_test.go:185: [rapid] draw action: "set"
-			    deepsubtree_test.go:106: [rapid] draw kv: 1
-			    deepsubtree_test.go:185: [rapid] draw action: "set"
-			    deepsubtree_test.go:106: [rapid] draw kv: -1
-			    deepsubtree_test.go:185: [rapid] draw action: "set"
-			    deepsubtree_test.go:106: [rapid] draw kv: -1
-			    deepsubtree_test.go:185: [rapid] draw action: "remove existing"
-			    deepsubtree_test.go:119: [rapid] draw k: 1
-			    deepsubtree_test.go:458: remove mismatch: key: 1: expectVal: [49]: gotVal: []
-		*/
 		return fmt.Errorf("remove mismatch: key: %d: expectVal: %d: gotVal: %d", keyI, expectVal, gotVal)
 	}
 
