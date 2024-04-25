@@ -118,26 +118,26 @@ func testWithRapid(t *rapid.T) {
 		*/
 		"remove existing": func(t *rapid.T) {
 			/*
-				TODO: there is some kind of problem with the returned value being wrong
-				   I should try to see if it's on Manav's branch.
-				   deepsubtree_test.go:69: [rapid] fail file "testdata/rapid/TestPropertyBased/TestPropertyBased-20240405121456-15281.fail" is no longer valid
-					deepsubtree_test.go:69: [rapid] fail file "testdata/rapid/TestPropertyBased/TestPropertyBased-20240405122355-17556.fail" is no longer valid
-					deepsubtree_test.go:69: [rapid] failed after 0 tests: remove mismatch: key: 0: expectVal: [48]: gotVal: []
-						To reproduce, specify -run="TestPropertyBased" -rapid.failfile="testdata/rapid/TestPropertyBased/TestPropertyBased-20240405122422-17661.fail"
-						Failed test output:
-					deepsubtree_test.go:185: [rapid] draw action: "set"
-					deepsubtree_test.go:106: [rapid] draw kv: 0
-					deepsubtree_test.go:185: [rapid] draw action: "set"
-					deepsubtree_test.go:106: [rapid] draw kv: 2
-					deepsubtree_test.go:185: [rapid] draw action: "set"
-					deepsubtree_test.go:106: [rapid] draw kv: 1
-					deepsubtree_test.go:185: [rapid] draw action: "set"
-					deepsubtree_test.go:106: [rapid] draw kv: -1
-					deepsubtree_test.go:185: [rapid] draw action: "set"
-					deepsubtree_test.go:106: [rapid] draw kv: -1
-					deepsubtree_test.go:185: [rapid] draw action: "remove existing"
-					deepsubtree_test.go:119: [rapid] draw k: 1
-					deepsubtree_test.go:458: remove mismatch: key: 1: expectVal: [49]: gotVal: []
+				TODO:
+				 --- FAIL: TestPropertyBased (0.00s)
+				    deepsubtree_test.go:69: [rapid] fail file "testdata/rapid/TestPropertyBased/TestPropertyBased-20240405121456-15281.fail" is no longer valid
+				    deepsubtree_test.go:69: [rapid] fail file "testdata/rapid/TestPropertyBased/TestPropertyBased-20240405122355-17556.fail" is no longer valid
+				    deepsubtree_test.go:69: [rapid] failed after 0 tests: remove mismatch: key: 2: expectVal: [50]: gotVal: []
+				        To reproduce, specify -run="TestPropertyBased" -rapid.failfile="testdata/rapid/TestPropertyBased/TestPropertyBased-20240405122448-17840.fail"
+				        Failed test output:
+				    deepsubtree_test.go:212: [rapid] draw action: "set"
+				    deepsubtree_test.go:111: [rapid] draw kv: 2
+				    deepsubtree_test.go:212: [rapid] draw action: "set"
+				    deepsubtree_test.go:111: [rapid] draw kv: 3
+				    deepsubtree_test.go:212: [rapid] draw action: "set"
+				    deepsubtree_test.go:111: [rapid] draw kv: 10
+				    deepsubtree_test.go:212: [rapid] draw action: "set"
+				    deepsubtree_test.go:111: [rapid] draw kv: 11
+				    deepsubtree_test.go:212: [rapid] draw action: "set"
+				    deepsubtree_test.go:111: [rapid] draw kv: 10
+				    deepsubtree_test.go:212: [rapid] draw action: "remove existing"
+				    deepsubtree_test.go:145: [rapid] draw k: 2
+				    deepsubtree_test.go:464: remove mismatch: key: 2: expectVal: [50]: gotVal: []
 			*/
 			if keys.Len() == 0 {
 				return

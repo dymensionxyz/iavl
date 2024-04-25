@@ -433,6 +433,7 @@ func (dst *DeepSubTree) remove(key []byte) (value []byte, removed bool, err erro
 // - the hash of the new node (or nil if the node is the one removed)
 // - the node that replaces the orig. node after remove
 // - the removed value
+// TODO: the removed value return is obviously busted
 func (dst *DeepSubTree) recursiveRemove(node *Node, key []byte) (newHash []byte, newSelf *Node, newValue []byte, err error) {
 	version := dst.version + 1
 
@@ -463,7 +464,7 @@ func (dst *DeepSubTree) recursiveRemove(node *Node, key []byte) (newHash []byte,
 		}
 
 		if newLeftHash == nil && newLeftNode == nil { // left node held value, was removed
-			return node.rightHash, node.rightNode, node.key, nil
+			return node.rightHash, node.rightNode, leftNode.value, nil // TODO: check returned value
 		}
 
 		newNode, err := node.clone(version)
@@ -483,13 +484,13 @@ func (dst *DeepSubTree) recursiveRemove(node *Node, key []byte) (newHash []byte,
 		}
 
 		return newNode.hash, newNode, newKey, nil
-	} else if rightNode != nil && (compare >= 0 || leftNode == nil) {
+	} else if compare >= 0 || leftNode == nil {
 		newRightHash, newRightNode, newKey, err := dst.recursiveRemove(rightNode, key)
 		if err != nil {
 			return nil, nil, nil, err
 		}
 		if newRightHash == nil && newRightNode == nil { // right node held value, was removed
-			return node.leftHash, node.leftNode, nil, nil
+			return node.leftHash, node.leftNode, rightNode.value, nil // TODO: check returned value
 		}
 
 		newNode, err := node.clone(version)
